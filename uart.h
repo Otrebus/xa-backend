@@ -12,24 +12,24 @@ typedef enum { Idle, Receiving, AppReceiving, ProgReceiving } UartRecvrecvState 
 typedef enum { ExpectingLengthLsb, ExpectingLengthMsb, ExpectingData } ProgRecvrecvState;
 
 typedef struct {
-    unsigned int length;
-    const unsigned char* buf;
+    unsigned int length;          
+    const unsigned char* buf;     
 } transmitInfo;
 
 typedef struct {
-    Object super;                 // Inherited TinyTimber superobject
+    Object super;                 // Inherited TinyTimber grandfather object
     unsigned char buffer[256];    // Reception buffer
     unsigned int pBuf;            // First free character in transmission buffer
 
     UartRecvrecvState recvState;  // State reflecting the stage of transmission reception
-    bool escape;                  // Flag indicating whether previous byte was an escape character            dlfjdllfl
-    bool transmitting;
+    bool escape;                  // Was previous byte escape character?
+    bool transmitting;            // Are we currently transmitting?
     
-    unsigned int programLength;
-    unsigned int totalReceived;
+    unsigned int programLength;   // Length of program currently being received
+    unsigned int totalReceived;   // Amount of program received and confirmed so far
     
-    transmitInfo tInfo;
-    unsigned int curTransByte;
+    transmitInfo tInfo;           // Info about what we are currently transmitting (size and &buf)
+    unsigned int curTransByte;    // How much we've transmitted of the above
 } Uart;
 
 #define initUart() { initObject(), {}, 0, Idle, false, false, 0, 0, { 0, 0 }, 0 }

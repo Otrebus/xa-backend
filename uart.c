@@ -97,7 +97,7 @@ int uartSentInt(Uart* self, int arg)
     UDR0 = self->tInfo.buf[self->curTransByte++];
     return 0;
 }
-
+ 
 void setupUart()
 {
     // Set baud speed
