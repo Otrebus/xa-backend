@@ -37,7 +37,7 @@ typedef struct {
     unsigned int programLength;   // Length of program currently being received
     unsigned int totalReceived;   // Amount of program received and confirmed so far
     
-    unsigned char transBuf[256];  // TODO: only for testing, remove later
+    unsigned char transBuf[256];  // TODO: only for testing, remove later 
     transmitInfo tInfo;           // Info about what we are currently transmitting (size and &buf)
     unsigned int curTransByte;    // How much we've transmitted of the above
 } Uart;
