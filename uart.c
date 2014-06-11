@@ -16,16 +16,48 @@ int handleCompleteAppFrame(Uart* self)
 int transmit(Uart* self, transmitInfo tInfo)
 {
     if(self->transmitting)
-    return 0;
+        return 0;
     self->transmitting = true;
-    self->tInfo.buf = tInfo.buf;
-    self->tInfo.length = tInfo.length;
     UDR0 = 0x7E;
     return 0;
 }
 
-int handleReceivedProgByte(Uart* self, unsigned char arg)
+int handleReceivedProgByte(Uart* self, unsigned char byte)
 {
+    switch(self->progRecvState)
+    {
+        case ProgRecvIdle:
+            break;
+        case ExpectingLength:
+            if(self->subState == 0)
+                self->programLength = 0;
+            self->programLength |= ((int)byte << (8*self->subState++));
+            if(self->subState > 1)
+            {
+                self->subState = 0;
+                self->progRecvState = ExpectingData;
+            }
+            break;
+        case ExpectingData:
+            if(byte == 0x7E)
+            {
+                if(self->pBuf == self->programLength + 4)
+                {
+                    handleCompleteAppFrame(self); // TODO: this is of course not what we do
+                    self->recvState = RecvIdle;
+                    self->progRecvState = ProgRecvIdle;
+                    self->pBuf -= 4; // TODO: actually handle checksum
+                }
+                else
+                {
+                    self->recvState = RecvIdle;
+                    self->pBuf -= 4; // TODO: actually handle checksum
+                }                    
+            }
+            else
+                self->buffer[self->pBuf++] = byte;
+            break;
+    }
     return 0;
 }
 
@@ -43,51 +75,58 @@ int handleReceivedByte(Uart* self, int arg)
         self->escape = true;
         return 0;
     }
-    
     if(self->escape)
     {
         byte = byte ^ (1 << 5);
-        self->escape = !self->escape;
+        self->escape = false;
     }
     
     switch(self->recvState)
     {
-        case Idle:
-        if(byte == 0x7E) // Delimiter, starts new frame
-        self->recvState = Receiving;
-        break;
+        case RecvIdle:
+            if(byte == 0x7E) // Delimiter, starts new frame
+            self->recvState = Receiving;
+            break;
         case Receiving:
-        if(byte == 0x00) // Sender wants to reprogram
-        self->recvState = ProgReceiving;
-        else if(byte > 0x01)
-        self->recvState = AppReceiving;
-        break;
+            if(byte == 0x00) // Sender wants to reprogram
+            {
+                self->recvState = ProgReceiving;
+                self->progRecvState = ExpectingLength;
+            }
+            else if(byte == 0x01)
+            {
+                self->recvState = ProgReceiving;
+                self->progRecvState = ExpectingData;
+            }
+            else if(byte > 0x01)
+                self->recvState = AppReceiving;
+            break;
         case AppReceiving:
-        if(byte == 0x7E)
-        {
-            self->recvState = Idle;
-            handleCompleteAppFrame(self);
-        }
-        else
-        handleReceivedAppByte(self, byte);
+            if(byte == 0x7E)
+            {
+                self->recvState = RecvIdle;
+                handleCompleteAppFrame(self);
+            }
+            else
+                handleReceivedAppByte(self, byte);
         break;
         case ProgReceiving:
-        
+            handleReceivedProgByte(self, byte);
         break;
     }
     return 0;
 }
 
-int uartReceiveInt(Uart* self, int arg)
+int uartReceiveInterrupt(Uart* self, int arg)
 {
     handleReceivedByte(self, UDR0);
     return 0;
 }
 
-int uartSentInt(Uart* self, int arg)
+int uartSentInterrupt(Uart* self, int arg)
 {
     if(!self->transmitting)
-    return 0;
+        return 0;
     if(self->curTransByte == self->tInfo.length)
     {
         UDR0 = 0x7E;
