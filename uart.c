@@ -7,26 +7,46 @@ Uart uart = initUart();
 
 int handleCompleteAppFrame(Uart* self)
 {
-    self->tInfo.length = self->pBuf;
-    self->tInfo.buf = (self->buffer);
-    transmit(self, self->tInfo);
+    // TOOD: do stuff
+    unsigned char stuff[32];
+    stuff[0] = FRAME_DELIMITER;
+    stuff[1] = 0xaa;
+    
+    TransmitInfo tInfo;
+    tInfo.length = self->pBuf + 3;
+    tInfo.buf = stuff;
+    for(int i = 0; i < self->pBuf; i++)
+        stuff[2+i] = self->buffer[i];
+    stuff[self->pBuf + 2] = FRAME_DELIMITER;
+    transmit(self, tInfo);
     return 0;
 }
 
-int transmit(Uart* self, transmitInfo tInfo)
+int transmit(Uart* self, TransmitInfo tInfo)
 {
+    // Check if the transmission buffer can hold what they want to send
+    cli();
+    if(self->pStart > self->pEnd && tInfo.length >= (self->pStart - self->pEnd))
+        return 0;
+    if(self->pEnd >= self->pStart && tInfo.length >= UART_TB_SIZE - (self->pEnd - self->pStart))
+        return 0;
+        
     for(int i = 0; i < tInfo.length; i++)
     {
-        transBuf[self->pEnd] = tInfo.buf[i];
-        pEnd = (pEnd + 1) % UART_TB_SIZE;
-    }        
+        self->transBuf[self->pEnd] = tInfo.buf[i];
+        self->pEnd = (self->pEnd + 1) % UART_TB_SIZE;
+    }
 
-    if(!self->transmitting)
+    if(!self->transmitting && tInfo.length > 0)
     {
         self->transmitting = true;
-        UDR0 = FRAME_DELIMITER;
+        // Gotta wait until we can write the first byte, rest is interrupt driven though
+        while ((UCSR0A & (1 << UDRE0)) == 0);
+        UDR0 = self->transBuf[self->pStart];
+        self->pStart = (self->pStart + 1) % UART_TB_SIZE;
     }        
-    return 0;
+    sei();
+    return 1;
 }
 
 int handleReceivedProgByte(Uart* self, unsigned char byte)
@@ -38,7 +58,10 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
             break;
         case ExpectingLength:
             if(self->subState == 0)
+            {
                 self->programLength = 0;
+                self->pBuf = 0;
+            }                
             self->programLength |= ((int)byte << (8*self->subState++));
             if(self->subState > 1)
             {
@@ -51,17 +74,15 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
             {
                 self->pBuf -= 4; // TODO: actually handle checksum
                 self->recvState = RecvIdle;
-                    
-                self->transBuf[0] = ACK_HEADER;
-                self->transBuf[1] = self->pBuf & 0xFF;
-                self->transBuf[2] = (int)self->pBuf >> 8;
-                self->tInfo.length = 3;
-                self->tInfo.buf = self->transBuf;
-                transmit(self, self->tInfo);
+                
+                unsigned char sendBuf[] = { FRAME_DELIMITER, ACK_HEADER, self->pBuf & 0xFF, (int) self->pBuf >> 8, FRAME_DELIMITER };
+                TransmitInfo tInfo;
+                tInfo.length = 5;
+                tInfo.buf = sendBuf;
+                transmit(self, tInfo);
  
-                if(self->pBuf == self->programLength + 4)
+                if(self->pBuf == self->programLength)
                 {
- 
                     handleCompleteAppFrame(self); // TODO: this is of course not what we do
                     self->progRecvState = ProgRecvIdle;
                 }
@@ -139,12 +160,11 @@ int handleSentByte(Uart* self)
 {
     if(self->pStart == self->pEnd)
     {
-        UDR0 = 0x7E;
         self->transmitting = false;
         return 0;
     }
-    UDR0 = self->transBuffer[self->pStart];
-    pStart = (pStart + 1) % UART_TB_SIZE;
+    UDR0 = self->transBuf[self->pStart];
+    self->pStart = (self->pStart + 1) % UART_TB_SIZE;
     return 0;
 }
 
