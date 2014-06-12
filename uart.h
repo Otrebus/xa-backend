@@ -4,6 +4,12 @@
 #include <stdbool.h>
 #include "TinyTimber.h"
 
+#define ASSERT(cond) if (!(cond))                                                            \
+{                                                                       \
+    __asm__ __volatile__ ("break" ::);                                    \
+}
+
+
 #define F_CPU 16000000
 #define USART_BAUDRATE 9600
 #define BAUD_PRESCALE (((F_CPU / (USART_BAUDRATE * 16UL))) - 1)
@@ -15,7 +21,10 @@
 #define ACK_HEADER      0x02
 #define ECHO_HEADER     0x03
 
-typedef enum { RecvIdle, Receiving, AppReceiving, ProgReceiving } UartRecvState ;
+#define UART_RB_SIZE 256
+#define UART_TB_SIZE 256 // Must be <= 256
+
+typedef enum { RecvIdle, Receiving, AppReceiving, ProgReceiving } UartRecvState;
 typedef enum { ProgRecvIdle, ExpectingLength, ExpectingData } ProgRecvState;
 
 typedef struct {
@@ -26,10 +35,11 @@ typedef struct {
 typedef struct {
     Object super;                 // Inherited TinyTimber grandfather object
     unsigned char buffer[256];    // Reception buffer
-    unsigned int pBuf;            // First free character in transmission buffer
+    unsigned int pBuf;            // First free character in reception buffer
 
     UartRecvState recvState;      // State reflecting the stage of transmission reception
     ProgRecvState progRecvState;  // State reflecting the stage of the program reception process
+    
     int subState;                 // Possible sub state to above
     bool escape;                  // Was previous byte escape character?
     bool transmitting;            // Are we currently transmitting?
@@ -37,13 +47,14 @@ typedef struct {
     unsigned int programLength;   // Length of program currently being received
     unsigned int totalReceived;   // Amount of program received and confirmed so far
     
-    unsigned char transBuf[256];  // TODO: only for testing, remove later 
-    transmitInfo tInfo;           // Info about what we are currently transmitting (size and &buf)
-    unsigned int curTransByte;    // How much we've transmitted of the above
+    unsigned char transBuf[256];  // Transmission (ring) buffer
+    unsigned char pStart;         // First untransmitted char
+    unsigned char pEnd;           // First empty space in buffer
 } Uart;
 
-#define initUart() { initObject(), {}, 0,  RecvIdle, ProgRecvIdle, 0, false, false,  0, 0,  {}, { 0, 0 }, 0 }
-    
+#define initUart() { initObject(), {}, 0,  RecvIdle, ProgRecvIdle, 
+                     0, false, false,  0, 0,  {}, 0, 0 }
+                         
 extern Uart uart;
 
 int handleCompleteAppFrame(Uart* self);

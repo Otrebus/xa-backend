@@ -15,10 +15,17 @@ int handleCompleteAppFrame(Uart* self)
 
 int transmit(Uart* self, transmitInfo tInfo)
 {
-    if(self->transmitting)
-        return 0;
-    self->transmitting = true;
-    UDR0 = 0x7E;
+    for(int i = 0; i < tInfo.length; i++)
+    {
+        transBuf[self->pEnd] = tInfo.buf[i];
+        pEnd = (pEnd + 1) % UART_TB_SIZE;
+    }        
+
+    if(!self->transmitting)
+    {
+        self->transmitting = true;
+        UDR0 = FRAME_DELIMITER;
+    }        
     return 0;
 }
 
@@ -27,6 +34,7 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
     switch(self->progRecvState)
     {
         case ProgRecvIdle:
+            ASSERT(0);
             break;
         case ExpectingLength:
             if(self->subState == 0)
@@ -39,20 +47,24 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
             }
             break;
         case ExpectingData:
-            if(byte == 0x7E)
+            if(byte == FRAME_DELIMITER)
             {
+                self->pBuf -= 4; // TODO: actually handle checksum
+                self->recvState = RecvIdle;
+                    
+                self->transBuf[0] = ACK_HEADER;
+                self->transBuf[1] = self->pBuf & 0xFF;
+                self->transBuf[2] = (int)self->pBuf >> 8;
+                self->tInfo.length = 3;
+                self->tInfo.buf = self->transBuf;
+                transmit(self, self->tInfo);
+ 
                 if(self->pBuf == self->programLength + 4)
                 {
+ 
                     handleCompleteAppFrame(self); // TODO: this is of course not what we do
-                    self->recvState = RecvIdle;
                     self->progRecvState = ProgRecvIdle;
-                    self->pBuf -= 4; // TODO: actually handle checksum
                 }
-                else
-                {
-                    self->recvState = RecvIdle;
-                    self->pBuf -= 4; // TODO: actually handle checksum
-                }                    
             }
             else
                 self->buffer[self->pBuf++] = byte;
@@ -84,32 +96,32 @@ int handleReceivedByte(Uart* self, int arg)
     switch(self->recvState)
     {
         case RecvIdle:
-            if(byte == 0x7E) // Delimiter, starts new frame
+            if(byte == FRAME_DELIMITER) // Delimiter, starts new frame
             self->recvState = Receiving;
             break;
         case Receiving:
-            if(byte == 0x00) // Sender wants to reprogram
+            if(byte == INITSEND_HEADER) // Sender wants to reprogram
             {
                 self->recvState = ProgReceiving;
                 self->progRecvState = ExpectingLength;
             }
-            else if(byte == 0x01)
+            else if(byte == MORESEND_HEADER)
             {
                 self->recvState = ProgReceiving;
                 self->progRecvState = ExpectingData;
             }
-            else if(byte > 0x01)
+            else
                 self->recvState = AppReceiving;
             break;
         case AppReceiving:
-            if(byte == 0x7E)
+            if(byte == FRAME_DELIMITER)
             {
                 self->recvState = RecvIdle;
                 handleCompleteAppFrame(self);
             }
             else
                 handleReceivedAppByte(self, byte);
-        break;
+            break;
         case ProgReceiving:
             handleReceivedProgByte(self, byte);
         break;
@@ -123,17 +135,22 @@ int uartReceiveInterrupt(Uart* self, int arg)
     return 0;
 }
 
-int uartSentInterrupt(Uart* self, int arg)
+int handleSentByte(Uart* self)
 {
-    if(!self->transmitting)
-        return 0;
-    if(self->curTransByte == self->tInfo.length)
+    if(self->pStart == self->pEnd)
     {
         UDR0 = 0x7E;
         self->transmitting = false;
         return 0;
     }
-    UDR0 = self->tInfo.buf[self->curTransByte++];
+    UDR0 = self->transBuffer[self->pStart];
+    pStart = (pStart + 1) % UART_TB_SIZE;
+    return 0;
+}
+
+int uartSentInterrupt(Uart* self, int arg)
+{
+    handleSentByte(self);
     return 0;
 }
  
