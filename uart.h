@@ -19,7 +19,7 @@
 #define UART_TB_SIZE 64 // Must be <= 256
 
 typedef enum { RecvIdle, Receiving, AppReceiving, ProgReceiving } UartRecvState;
-typedef enum { ProgRecvIdle, ExpectingLength, ExpectingData } ProgRecvState;
+typedef enum { ProgRecvIdle, ExpectingLength, ExpectingData, ExpectingSeq } ProgRecvState;
 
 typedef struct {
     unsigned int length;          
@@ -27,26 +27,31 @@ typedef struct {
 } TransmitInfo;
 
 typedef struct {
-    Object super;                          // Inherited TinyTimber grandfather object
-    unsigned char buffer[UART_RB_SIZE];    // Reception buffer
-    unsigned int pBuf;                     // First free character in reception buffer
+    Object super;                             // Inherited TinyTimber grandfather object
+    unsigned char frameBuffer[UART_RB_SIZE];  // Frame reception buffer
+    unsigned char progBuffer[512];            // Program buffer -- TODO: remove this, use external
+    unsigned int pBuf;                        // First free character in frame reception buffer
+    unsigned long checksum;                   // Checksum of current segment
+    unsigned int confirmedReceived;           // Amount of data with valid checksum received
+    unsigned int seq;                         // Sequence number of the current frame
 
-    UartRecvState recvState;               // State reflecting the stage of transmission reception
-    ProgRecvState progRecvState;           // Represents the stage of program reception
+    UartRecvState recvState;                  // Receive state
+    ProgRecvState progRecvState;              // Represents the stage of program reception
     
-    int subState;                          // Possible sub state to above
-    bool escape;                           // Was previous byte escape character?
-    bool transmitting;                     // Are we currently transmitting?
+    int subState;                             // Possible sub state to above
+    bool escape;                              // Was previous byte escape character?
+    bool transmitting;                        // Are we currently transmitting?
     
-    unsigned int programLength;            // Length of program currently being received
+    unsigned int programLength;               // Length of program currently being received
     
-    unsigned char transBuf[UART_TB_SIZE];  // Transmission (ring) buffer
-    unsigned char pStart;                  // First untransmitted char
-    unsigned char pEnd;                    // First empty space in buffer
+    unsigned char transBuf[UART_TB_SIZE];     // Transmission (ring) buffer
+    unsigned char pStart;                     // First untransmitted char
+    unsigned char pEnd;                       // First empty space in buffer
+    Msg timeout;
 } Uart;
 
-#define initUart() { initObject(), {}, 0,  RecvIdle, ProgRecvIdle, \
-                     0, false, false,  0,  {}, 0, 0 }
+#define initUart() { initObject(), {}, {}, 0, 0, 0, 0, RecvIdle, ProgRecvIdle, \
+                     0, false, false,  0,  {}, 0, 0, 0 }
                          
 extern Uart uart;
 
