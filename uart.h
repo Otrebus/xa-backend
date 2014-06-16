@@ -10,10 +10,10 @@
 
 #define FRAME_DELIMITER 0x7E
 #define ESCAPE_OCTET    0x7D
-#define INITSEND_HEADER 0x00
-#define MORESEND_HEADER 0x01
-#define ACK_HEADER      0x02
-#define ECHO_HEADER     0x03
+#define INITSEND_HEADER 0x0A
+#define MORESEND_HEADER 0x0B
+#define ACK_HEADER      0x0C
+#define ECHO_HEADER     0x0D
 
 #define UART_RB_SIZE 256
 #define UART_TB_SIZE 64 // Must be <= 256
@@ -42,6 +42,7 @@ typedef struct {
     bool escape;                              // Was previous byte escape character?
     bool transmitting;                        // Are we currently transmitting?
     
+    unsigned int tentativeProgramLength;      // Tentative program length (blah.)
     unsigned int programLength;               // Length of program currently being received
     
     unsigned char transBuf[UART_TB_SIZE];     // Transmission (ring) buffer
@@ -51,15 +52,11 @@ typedef struct {
 } Uart;
 
 #define initUart() { initObject(), {}, {}, 0, 0, 0, 0, RecvIdle, ProgRecvIdle, \
-                     0, false, false,  0,  {}, 0, 0, 0 }
+                     0, false, false,  0, 0,  {}, 0, 0, 0 }
                          
 extern Uart uart;
 
-int handleCompleteAppFrame(Uart* self);
-int transmit(Uart* self, TransmitInfo tInfo);
-int handleReceivedProgByte(Uart* self, unsigned char arg);
-int handleReceivedAppByte(Uart* self, unsigned char arg);
-int handleReceivedByte(Uart* self, int arg);
+int transmit(Uart* self, unsigned int length, unsigned char* buffer);
 int uartReceiveInterrupt(Uart* self, int arg);
 int uartSentInterrupt(Uart* self, int arg);
 void setupUart();

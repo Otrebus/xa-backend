@@ -8,14 +8,12 @@ Uart uart = initUart();
 
 void sendAck(Uart* self)
 {
-    unsigned char sendBuf[] = { FRAME_DELIMITER, ACK_HEADER, self->confirmedReceived & 0xFF, (int) self->confirmedReceived >> 8, 0, 0, 0, 0, FRAME_DELIMITER };
-    TransmitInfo tInfo;
-    tInfo.length = 9;
-    tInfo.buf = sendBuf;
+    unsigned char sendBuf[] = { FRAME_DELIMITER, ACK_HEADER, self->confirmedReceived & 0xFF, 
+                                (int) self->confirmedReceived >> 8, 0, 0, 0, 0, FRAME_DELIMITER };
     unsigned long chkSum = 0;
-    chkSum = sendBuf[1] + sendBuf[2] + sendBuf[3]; // TODO: fix
+    chkSum = sendBuf[1] + sendBuf[2] + sendBuf[3];
     *((unsigned long*) (&sendBuf[4])) = chkSum;
-    transmit(self, tInfo);
+    transmit(self, sizeof(sendBuf), sendBuf);
 }
 
 void addToChecksum(Uart* self, unsigned char byteToAdd)
@@ -25,36 +23,32 @@ void addToChecksum(Uart* self, unsigned char byteToAdd)
 
 int handleCompleteAppFrame(Uart* self)
 {
-    // TOOD: do stuff
+    // TODO: this is just test code, fix into some callback call or something
     unsigned char stuff[32];
     stuff[0] = FRAME_DELIMITER;
     stuff[1] = 0xaa;
     
-    TransmitInfo tInfo;
-    tInfo.length = self->programLength + 3;
-    tInfo.buf = stuff;
     for(int i = 0; i < self->programLength; i++)
         stuff[2+i] = self->progBuffer[i];
     stuff[self->programLength + 2] = FRAME_DELIMITER;
-    transmit(self, tInfo);
+    transmit(self, self->programLength + 3, stuff);
     return 0;
 }
 
-int transmit(Uart* self, TransmitInfo tInfo)
+int transmit(Uart* self, unsigned int length, unsigned char* buffer)
 {
     // Check if the transmission buffer can hold what they want to send
-    if((self->pStart > self->pEnd && tInfo.length >= (self->pStart - self->pEnd))
-       || (self->pEnd >= self->pStart && tInfo.length >= UART_TB_SIZE - (self->pEnd - self->pStart)))
+    if((self->pStart > self->pEnd && length >= (self->pStart - self->pEnd))
+       || (self->pEnd >= self->pStart && length >= UART_TB_SIZE - (self->pEnd - self->pStart)))
         return 0;
 
-    cli();        
-    for(int i = 0; i < tInfo.length; i++)
+    for(int i = 0; i < length; i++)
     {
-        self->transBuf[self->pEnd] = tInfo.buf[i];
+        self->transBuf[self->pEnd] = buffer[i];
         self->pEnd = (self->pEnd + 1) % UART_TB_SIZE;
     }
 
-    if(!self->transmitting && tInfo.length > 0)
+    if(!self->transmitting && length > 0)
     {
         self->transmitting = true;
         // Gotta wait until we can write the first byte, rest is interrupt driven though
@@ -62,8 +56,15 @@ int transmit(Uart* self, TransmitInfo tInfo)
         UDR0 = self->transBuf[self->pStart];
         self->pStart = (self->pStart + 1) % UART_TB_SIZE;
     }        
-    sei();
+
     return 1;
+}
+
+void timeout(Uart* self, int dummy)
+{
+//   self->progRecvState = ProgRecvIdle;
+//   self->recvState = RecvIdle;
+//   self->subState = 0;
 }
 
 void cancelTimeout(Uart* self)
@@ -74,13 +75,7 @@ void cancelTimeout(Uart* self)
 void resetTimeout(Uart* self, Time t)
 {
     ABORT(self->timeout);
-    AFTER(t, self, self->timeout, 0);
-}
-
-void timeout(Uart* self, int dummy)
-{
- //   self->progRecvState = ProgRecvIdle;
- //   self->recvState = RecvIdle;
+    self->timeout = AFTER(t, self, timeout, 0);
 }
 
 int handleReceivedProgByte(Uart* self, unsigned char byte)
@@ -90,15 +85,14 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
         case ProgRecvIdle:
             break;
         case ExpectingLength:
-         //   resetTimeout(self, MSEC(5));
             addToChecksum(self, byte);
             if(self->subState == 0)
             {
                 self->confirmedReceived = 0;
-                self->programLength = 0;
+                self->tentativeProgramLength = 0;
                 self->pBuf = 0;
             }                
-            self->programLength |= ((int)byte << (8*self->subState++));
+            self->tentativeProgramLength |= ((int)byte << (8*self->subState++));
             if(self->subState > 1)
             {
                 self->subState = 0;
@@ -106,7 +100,6 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
             }
             break;
         case ExpectingSeq:
-           // resetTimeout(self, MSEC(5));
             addToChecksum(self, byte);
             if(self->subState == 0)
                 self->seq = 0;
@@ -118,7 +111,6 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
             }
             break;
         case ExpectingData:
-         //   resetTimeout(self, MSEC(5));
             if(byte == FRAME_DELIMITER)
             {
                 if(self->pBuf < 4)
@@ -127,7 +119,7 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
                 self->recvState = RecvIdle;
 
                 unsigned long receivedChecksum = *((unsigned long*) &(self->frameBuffer[self->pBuf]));
-
+                resetTimeout(self, MSEC(20));
                 for(int i = 0; i < self->pBuf; i++)
                     addToChecksum(self, self->frameBuffer[i]);
                 if(receivedChecksum != self->checksum || (self->seq < self->confirmedReceived && self->seq + self->pBuf > self->confirmedReceived))
@@ -137,7 +129,8 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
                     self->pBuf = 0;
                     self->progRecvState = ProgRecvIdle;
                     return;
-                }                    
+                }
+                self->programLength = self->tentativeProgramLength;
                 if(self->seq + self->pBuf <= self->confirmedReceived)
                 {
                     sendAck(self);
@@ -147,12 +140,10 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
                     self->checksum = 0;
                     return;
                 }                    
-            
-           //     cancelTimeout(self);
                         
                 for(int i = 0; i < self->pBuf; i++)
                     self->progBuffer[i + self->confirmedReceived] = self->frameBuffer[i];
-                self->confirmedReceived += self->pBuf;
+                self->confirmedReceived = self->pBuf + self->seq;
                 sendAck(self);
                 self->pBuf = 0;
                 if(self->confirmedReceived == self->programLength)
@@ -165,10 +156,7 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
             }
             else
             {
-                if(self->pBuf < 3)
-                    self->frameBuffer[self->pBuf++] = (rand() % 10 != 0 ? byte : byte + 10);
-                else
-                    self->frameBuffer[self->pBuf++] = byte;
+                self->frameBuffer[self->pBuf++] = byte;
             }                
             break;
     }
@@ -177,12 +165,17 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
 
 int handleReceivedAppByte(Uart* self, unsigned char arg)
 {
-    self->frameBuffer[self->pBuf++] = (unsigned char) arg;
+    //self->frameBuffer[self->pBuf++] = (unsigned char) arg;
     return 0;
 }
 
 int handleReceivedByte(Uart* self, int arg)
 {
+    resetTimeout(self, MSEC(5));
+    /*if(rand() % 10 == 0)
+        arg = rand() % 256;
+    if(rand() % 5 == 0)
+        arg = FRAME_DELIMITER;*/
     unsigned char byte = (char) arg;
     if(byte == 0x7D)
     {
@@ -207,12 +200,14 @@ int handleReceivedByte(Uart* self, int arg)
                 addToChecksum(self, byte);
                 self->recvState = ProgReceiving;
                 self->progRecvState = ExpectingLength;
+                self->subState = 0;
             }
             else if(byte == MORESEND_HEADER)
             {
                 addToChecksum(self, byte);
                 self->recvState = ProgReceiving;
                 self->progRecvState = ExpectingSeq;
+                self->subState = 0;
             }
             else
                 self->recvState = AppReceiving;
@@ -221,7 +216,7 @@ int handleReceivedByte(Uart* self, int arg)
             if(byte == FRAME_DELIMITER)
             {
                 self->recvState = RecvIdle;
-                handleCompleteAppFrame(self);
+    //            handleCompleteAppFrame(self);
             }
             else
                 handleReceivedAppByte(self, byte);
