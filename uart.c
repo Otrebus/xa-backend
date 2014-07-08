@@ -48,7 +48,7 @@ int transmit(Uart* self, unsigned int length, unsigned char* buffer)
         self->pEnd = (self->pEnd + 1) % UART_TB_SIZE;
     }
 
-    if(!self->transmitting && length > 0)
+    if(!self->transmitting && length > 0) // TODO: if self->transmitting, then what about the previous for-loop?
     {
         self->transmitting = true;
         // Gotta wait until we can write the first byte, rest is interrupt driven though
