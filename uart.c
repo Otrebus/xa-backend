@@ -31,6 +31,7 @@ int handleCompleteAppFrame(Uart* self)
     for(int i = 0; i < self->programLength; i++)
         stuff[2+i] = self->progBuffer[i];
     stuff[self->programLength + 2] = FRAME_DELIMITER;
+    
     transmit(self, self->programLength + 3, stuff);
     return 0;
 }
@@ -114,7 +115,7 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
             if(byte == FRAME_DELIMITER)
             {
                 if(self->pBuf < 4)
-                    return;
+                    return 0;
                 self->pBuf -= 4;
                 self->recvState = RecvIdle;
 
@@ -128,7 +129,7 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
                     self->checksum = 0;
                     self->pBuf = 0;
                     self->progRecvState = ProgRecvIdle;
-                    return;
+                    return 0;
                 }
                 self->programLength = self->tentativeProgramLength;
                 if(self->seq + self->pBuf <= self->confirmedReceived)
@@ -138,7 +139,7 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
                     self->progRecvState = ProgRecvIdle;
                     self->recvState = RecvIdle;
                     self->checksum = 0;
-                    return;
+                    return 1;
                 }                    
                         
                 for(int i = 0; i < self->pBuf; i++)
