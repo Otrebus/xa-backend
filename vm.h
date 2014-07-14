@@ -40,6 +40,7 @@ typedef struct VmThread
     void* sp;
     void* pc;
     void* stack;
+    void* bottom;
     struct VmThread* next;
 }  VmThread;
 
