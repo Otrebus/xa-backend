@@ -1,4 +1,5 @@
 #include "uart.h"
+#include "led.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <stdbool.h>
@@ -23,8 +24,11 @@ void addToChecksum(Uart* self, unsigned char byteToAdd)
 
 int handleCompleteAppFrame(Uart* self)
 {
+    blink(&led, 1);
     // TODO: this is just test code, fix into some callback call or something
-    unsigned char stuff[32];
+    unsigned char stuff[4] = {FRAME_DELIMITER, 0xaa, 0xDE, FRAME_DELIMITER };
+    transmit(self, 4, stuff);
+    /*unsigned char stuff[32];
     stuff[0] = FRAME_DELIMITER;
     stuff[1] = 0xaa;
     
@@ -32,7 +36,7 @@ int handleCompleteAppFrame(Uart* self)
         stuff[2+i] = self->progBuffer[i];
     stuff[self->programLength + 2] = FRAME_DELIMITER;
     
-    transmit(self, self->programLength + 3, stuff);
+    transmit(self, self->programLength + 3, stuff);*/
     return 0;
 }
 
@@ -49,7 +53,7 @@ int transmit(Uart* self, unsigned int length, unsigned char* buffer)
         self->pEnd = (self->pEnd + 1) % UART_TB_SIZE;
     }
 
-    if(!self->transmitting && length > 0) // TODO: if self->transmitting, then what about the previous for-loop?
+    if(!self->transmitting && length > 0)
     {
         self->transmitting = true;
         // Gotta wait until we can write the first byte, rest is interrupt driven though
