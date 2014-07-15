@@ -7,6 +7,39 @@
 #define VM_NARGBINS 8
 #define VM_NTHREADS 4
 
+#include <avr/pgmspace.h>
+// save some unsigned ints
+
+PROGMEM const unsigned char instructionLength[] = 
+    { 0,
+      3, // OP_PUSHFP
+      3, // OP_PUSHIMM 
+      3, // OP_PUSHADDR     
+      3, // OP_PUSHBYTEFP   
+      3, // OP_PUSHWORDFP   
+      3, // OP_PUSHDWORDFP  
+      3, // OP_PUSHBYTEADDR 
+      3, // OP_PUSHWORDADDR 
+      3, // OP_PUSHDWORDADDR
+      2, // OP_PUSHBYTEIMM  
+      3, // OP_PUSHWORDIMM  
+      5, // OP_PUSHDWORDIMM 
+      1, // OP_PUSHBYTE     
+      1, // OP_PUSHWORD     
+      1, // OP_PUSHDWORD    
+      3, // OP_POPIMM       
+      3, // OP_POPBYTEFP    
+      3, // OP_POPWORDFP    
+      3, // OP_POPDWORDFP   
+      3, // OP_POPBYTEADDR  
+      3, // OP_POPWORDADDR  
+      3, // OP_POPDWORDADDR 
+      3, // OP_CALL         
+      3, // OP_RET          
+      1, // OP_SYNC         
+      1  // OP_ASYNC
+    };
+
 #define OP_PUSHFP           0x01
 #define OP_PUSHIMM          0x02
 #define OP_PUSHADDR         0x03

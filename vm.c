@@ -6,6 +6,7 @@
 
 char mem[4096];
 bool currentlyLoading = false;
+int programSection;
 int entryPoint;
 int externSection;
 
@@ -162,6 +163,17 @@ inline void popArray(void* data, VmThread* t, int size)
     t->sp += size;
 }
 
+void linkProgram()
+{
+    char* pos = mem + programSection;
+    
+    
+}
+
+void initStacks()
+{
+}           
+
 void loadProgramSegment(int totalLength, int seq, int segmentLength, void* buffer)
 {
     // if currentlyLoading is 0:
@@ -173,19 +185,20 @@ void loadProgramSegment(int totalLength, int seq, int segmentLength, void* buffe
     currentlyLoading = true;
     
     for(int i = 0; i < segmentLength; i++)
-    mem[seq++] = ((char*) buffer)[i];
+        mem[seq++] = ((char*) buffer)[i];
     
-    if(seq == segmentLength)
+    if(seq + segmentLength == totalLength)
     {
         // Extract the header information and shift the code backwards
-        entryPoint = *((int*)mem);
-        externSection = *((int*)mem + 2);
-        for(int i = 0; i < totalLength - 4; i++)
-        mem[i] = mem[i + 4];
+        programSection = getInt(mem);
+        entryPoint = getInt(mem + 2);
+        externSection = getInt(mem + 4);
+        for(int i = 0; i < totalLength - 6; i++)
+        mem[i] = mem[i + 6];
+        
+        linkProgram();
+        initStacks();
     }
-    
-    // TODO: link stuff
-    // TODO: initialize thread stacks
 }
 
 bool executeInstruction(VmThread* thread, VmArgBin* argBin)
@@ -372,7 +385,7 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         popArray(argBin->argStack, thread, argSize);
         argBin->methodAddr = methodAddress;
         argBin->returnAddr = 0;
-        SEND(baseline, deadline, obj, exec, argBin);
+        SEND(USEC(baseline), USEC(deadline), obj, exec, argBin);
         thread->pc++;
         break;
     }
