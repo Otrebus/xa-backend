@@ -1,4 +1,8 @@
+#ifndef LED_H
+#define LED_H
+
 #include "led.h"
+#include "vm.h"
 #include <stdbool.h>
 #include <avr/io.h>
 
@@ -37,4 +41,22 @@ int blink(Led* self, int dummy)
     toggle(self, dummy);
     AFTER(MSEC(250), self, blink, 0);
     return 0;
-}    
+}
+
+void vmToggleLed(VmThread* thread)
+{
+    // No arguments to this function, so we don't need to care about the thread sent
+    SYNC(&led, toggle, 0);
+    thread->sp = thread->fp + 4;
+}
+
+void vmSetLed(VmThread* thread)
+{
+    if(getChar(thread->fp + 4) == 0)
+        SYNC(&led, turnOn, 0);
+    else
+        SYNC(&led, turnOff, 0);
+    thread->sp = thread->fp + 5;
+}
+
+#endif

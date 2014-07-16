@@ -1,4 +1,5 @@
 #include "uart.h"
+#include "vm.h"
 #include "led.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -149,6 +150,7 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
                 for(int i = 0; i < self->pBuf; i++)
                     self->progBuffer[i + self->confirmedReceived] = self->frameBuffer[i];
                 self->confirmedReceived = self->pBuf + self->seq;
+                loadProgramSegment(self->programLength, self->seq, self->pBuf, self->frameBuffer);
                 sendAck(self);
                 self->pBuf = 0;
                 if(self->confirmedReceived == self->programLength)

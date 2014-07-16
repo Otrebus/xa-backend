@@ -1,14 +1,48 @@
 #include "vm.h"
 #include "TinyTimber.h"
 
+#include "led.h"
+
 #include <stdbool.h>
 #include <string.h>
 
-char mem[4096];
 bool currentlyLoading = false;
 int programSection;
 int entryPoint;
 int externSection;
+
+PROGMEM const unsigned char instructionLength[] =
+{   0,
+    3, // OP_PUSHFP
+    3, // OP_PUSHIMM
+    3, // OP_PUSHADDR
+    3, // OP_PUSHBYTEFP
+    3, // OP_PUSHWORDFP
+    3, // OP_PUSHDWORDFP
+    3, // OP_PUSHBYTEADDR
+    3, // OP_PUSHWORDADDR
+    3, // OP_PUSHDWORDADDR
+    2, // OP_PUSHBYTEIMM
+    3, // OP_PUSHWORDIMM
+    5, // OP_PUSHDWORDIMM
+    1, // OP_PUSHBYTE
+    1, // OP_PUSHWORD
+    1, // OP_PUSHDWORD
+    3, // OP_POPIMM
+    3, // OP_POPBYTEFP
+    3, // OP_POPWORDFP
+    3, // OP_POPDWORDFP
+    3, // OP_POPBYTEADDR
+    3, // OP_POPWORDADDR
+    3, // OP_POPDWORDADDR
+    3, // OP_CALL
+    3, // OP_RET
+    1, // OP_SYNC
+    1, // OP_ASYNC
+    3  // OP_CALLE
+};
+
+char mem[4096];
 
 VmArgBin vmArgBins[VM_NARGBINS];
 VmThread vmThreads[VM_NTHREADS];
@@ -99,6 +133,11 @@ inline void setLong(void* pos, long l)
     *((long*) pos) = l;
 }
 
+inline void setPtr(void* pos, void* ptr)
+{
+    *((void**) pos) = ptr;
+}    
+
 inline char popChar(VmThread* t)
 {
     char c = getChar(t->sp);
@@ -163,11 +202,42 @@ inline void popArray(void* data, VmThread* t, int size)
     t->sp += size;
 }
 
+void* getAddrFromName(const char* name)
+{
+    if(strcmp(name, "toggleLed") == 0)
+        return (void*) vmToggleLed;
+    else if(strcmp(name, "toggleLed") == 0)
+        return (void*) vmSetLed;
+    return 0;
+}    
+
 void linkProgram()
 {
     char* pos = mem + programSection;
-    
-    
+    while(pos < mem + externSection)
+    {
+        unsigned char opCode = getChar(pos);
+        switch(opCode)
+        {
+        case OP_PUSHADDR:
+        case OP_PUSHBYTEADDR:
+        case OP_PUSHWORDADDR:
+        case OP_PUSHDWORDADDR:
+        case OP_POPBYTEADDR:
+        case OP_POPWORDADDR:
+        case OP_POPDWORDADDR:
+        case OP_CALL: ;
+            int addr = getInt(pos + 1);
+            if(addr < externSection)
+                setPtr(pos + 1, mem + addr);
+            else
+            {
+                // set to OP_CALLE ?
+                setPtr(pos + 1, getAddrFromName(pos));
+            }                
+        }
+        pos += instructionLength[opCode];        
+    }
 }
 
 void initStacks()
@@ -206,143 +276,144 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
     void* addr;
     switch(getChar(thread->pc))
     {
-        case OP_PUSHFP: // push $fp+c
+    case OP_PUSHFP: // push $fp+c
         pushPtr(thread, thread->fp + getInt(thread->pc + 1));
         thread->pc += 3;
         break;
         
-        case OP_PUSHIMM: // push imm (reduce $sp with immediate)
+    case OP_PUSHIMM: // push imm (reduce $sp with immediate)
         thread->sp -= getInt(thread->pc + 1);
         thread->pc += 3;
         break;
         
-        case OP_PUSHADDR: // push label
+    case OP_PUSHADDR: // push label
         pushInt(thread, getInt(thread->pc + 1));
         thread->pc += 3;
         break;
         
-        case OP_PUSHBYTEFP: // push byte [$fp+c]
+    case OP_PUSHBYTEFP: // push byte [$fp+c]
         addr = thread->fp + getInt(thread->pc + 1);
         pushChar(thread, getChar(addr));
         thread->pc += 3;
         break;
         
-        case OP_PUSHWORDFP: // push word [$fp+c]
+    case OP_PUSHWORDFP: // push word [$fp+c]
         addr = thread->fp + getInt(thread->pc + 1);
         pushInt(thread, getInt(addr));
         thread->pc += 3;
         break;
         
-        case OP_PUSHDWORDFP: // push dword [$fp+c]
+    case OP_PUSHDWORDFP: // push dword [$fp+c]
         addr = thread->fp + getInt(thread->pc + 1);
         pushLong(thread, getLong(addr));
         thread->pc += 3;
         break;
         
-        case OP_PUSHBYTEADDR: // push byte [label]
+    case OP_PUSHBYTEADDR: // push byte [label]
         addr = getPtr(thread->pc + 1);
         pushChar(thread, getChar(addr));
         thread->pc += 3;
         break;
         
-        case OP_PUSHWORDADDR: // push word [label]
+    case OP_PUSHWORDADDR: // push word [label]
         addr = getPtr(thread->pc + 1);
         pushInt(thread, getInt(addr));
         thread->pc += 3;
         break;
 
-        case OP_PUSHDWORDADDR: // push dword [label]
+    case OP_PUSHDWORDADDR: // push dword [label]
         addr = getPtr(thread->pc + 1);
         pushLong(thread, getLong(addr));
         thread->pc += 3;
         break;
 
-        case OP_PUSHBYTEIMM: // push byte imm
+    case OP_PUSHBYTEIMM: // push byte imm
         pushChar(thread, getChar(thread->pc + 1));
         thread->pc += 2;
         break;
         
-        case OP_PUSHWORDIMM: // push word imm
+    case OP_PUSHWORDIMM: // push word imm
         pushInt(thread, getInt(thread->pc + 1));
         thread->pc += 3;
         break;
 
-        case OP_PUSHDWORDIMM: // push dword imm
+    case OP_PUSHDWORDIMM: // push dword imm
         pushLong(thread, getLong(thread->pc + 1));
         thread->pc += 5;
         break;
 
-        case OP_PUSHBYTE: // push byte (replace [$sp] with [[$sp]])
+    case OP_PUSHBYTE: // push byte (replace [$sp] with [[$sp]])
         addr = popPtr(thread); // This can be optimized
         pushChar(thread, getChar(addr));
         thread->pc += 1;
         break;
         
-        case OP_PUSHWORD: // push word (replace [$sp] with [[$sp]])
+    case OP_PUSHWORD: // push word (replace [$sp] with [[$sp]])
         addr = popPtr(thread);
         pushInt(thread, getInt(addr));
         thread->pc += 1;
         break;
         
-        case OP_PUSHDWORD: // push word (replace [$sp] with [[$sp]])
+    case OP_PUSHDWORD: // push word (replace [$sp] with [[$sp]])
         addr = popPtr(thread);
         pushLong(thread, getLong(addr));
         thread->pc += 1;
         break;
         
-        case OP_POPIMM:
+    case OP_POPIMM:
         thread->sp += getInt(thread->pc + 1);
         thread->pc += 3;
         break;
         
-        case OP_POPBYTEFP: // pop byte [$fp + c]
+    case OP_POPBYTEFP: // pop byte [$fp + c]
         addr = thread->fp + getInt(thread->pc + 1);
         setChar(addr, popChar(thread));
         thread->pc += 3;
         break;
         
-        case OP_POPWORDFP: // pop word [$fp + c]
+    case OP_POPWORDFP: // pop word [$fp + c]
         addr = thread->fp + getInt(thread->pc + 1);
         setInt(addr, popInt(thread));
         thread->pc += 3;
         break;
 
-        case OP_POPDWORDFP:  // pop dword [$fp + c]
+    case OP_POPDWORDFP:  // pop dword [$fp + c]
         addr = thread->fp + getInt(thread->pc + 1);
         setLong(addr, popLong(thread));
         thread->pc += 3;
         break;
         
-        case OP_POPBYTEADDR: // pop byte [label]
+    case OP_POPBYTEADDR: // pop byte [label]
         addr = getPtr(thread->pc + 1);
         setChar(addr, popChar(thread));
         thread->pc += 3;
         break;
         
-        case OP_POPWORDADDR: // pop word [label]
+    case OP_POPWORDADDR: // pop word [label]
         addr = getPtr(thread->pc + 1);
         setInt(addr, popInt(thread));
         thread->pc += 3;
         break;
         
-        case OP_POPDWORDADDR: // pop dword [label]
+    case OP_POPDWORDADDR: // pop dword [label]
         addr = getPtr(thread->pc + 1);
         setLong(addr, popLong(thread));
         thread->pc += 3;
         break;
         
-        case OP_CALL:
+    case OP_CALL:
         pushInt(thread, (int) (thread->pc + 3));
         pushInt(thread, (int) (thread->fp));
+        thread->fp = thread->sp;
         thread->pc = getPtr(thread->pc + 1);
         break;
         
-        case OP_RET: ;
+    case OP_RET: ;
         int spDec = getInt(thread->pc + 1);
-        // $sp = $fp - arg
-        thread->sp = thread->fp - spDec;
-        // $pc = [$fp - 2]
-        void* retAddr = getPtr(thread->fp - 2);
+        // $sp = $fp + arg + 4
+        thread->sp = thread->fp + spDec + 4;
+        // $pc = [$fp + 2]
+        void* retAddr = getPtr(thread->fp + 2);
         thread->pc = retAddr;
         // $fp = [$fp]
         thread->fp = getPtr(thread->fp);
@@ -354,7 +425,7 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
             return false; // Stop executing instructions on this object
         }
         
-        case OP_SYNC: ;
+    case OP_SYNC: ;
         void* methodAddress = popPtr(thread);
         void* obj = popPtr(thread);
         // We can reuse the current thread in sync calls
@@ -374,7 +445,7 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         thread->fp = oldFp;
         break;
         
-        case OP_ASYNC: ;
+    case OP_ASYNC: ;
         char argSize = popChar(thread);
         long baseline = popLong(thread);
         long deadline = popLong(thread);
@@ -388,6 +459,18 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         SEND(USEC(baseline), USEC(deadline), obj, exec, argBin);
         thread->pc++;
         break;
+        
+    case OP_CALLE: // call external (I/O) function
+        // First push a dummy return value and old $fp onto the stack just to
+        // present a stack frame consistent with the rest of the different call types
+        pushInt(thread, 0);
+        pushInt(thread, 0);
+        void* savedFp = thread->fp;
+        thread->fp = thread->sp;
+        void (*fun)(VmThread*) = getPtr(thread->pc + 1);
+        fun(thread);
+        thread->fp = savedFp;
+        thread->pc += 3;        
     }
     return true;
 }

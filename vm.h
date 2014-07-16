@@ -1,5 +1,5 @@
-#ifndef VM_H_
-#define VM_H_
+#ifndef VM_H
+#define VM_H
 
 #define VM_MAX_ARGSIZE 64
 #define VM_STACKSIZE 256
@@ -10,35 +10,7 @@
 #include <avr/pgmspace.h>
 // save some unsigned ints
 
-PROGMEM const unsigned char instructionLength[] = 
-    { 0,
-      3, // OP_PUSHFP
-      3, // OP_PUSHIMM 
-      3, // OP_PUSHADDR     
-      3, // OP_PUSHBYTEFP   
-      3, // OP_PUSHWORDFP   
-      3, // OP_PUSHDWORDFP  
-      3, // OP_PUSHBYTEADDR 
-      3, // OP_PUSHWORDADDR 
-      3, // OP_PUSHDWORDADDR
-      2, // OP_PUSHBYTEIMM  
-      3, // OP_PUSHWORDIMM  
-      5, // OP_PUSHDWORDIMM 
-      1, // OP_PUSHBYTE     
-      1, // OP_PUSHWORD     
-      1, // OP_PUSHDWORD    
-      3, // OP_POPIMM       
-      3, // OP_POPBYTEFP    
-      3, // OP_POPWORDFP    
-      3, // OP_POPDWORDFP   
-      3, // OP_POPBYTEADDR  
-      3, // OP_POPWORDADDR  
-      3, // OP_POPDWORDADDR 
-      3, // OP_CALL         
-      3, // OP_RET          
-      1, // OP_SYNC         
-      1  // OP_ASYNC
-    };
+extern PROGMEM const unsigned char instructionLength[];
 
 #define OP_PUSHFP           0x01
 #define OP_PUSHIMM          0x02
@@ -66,6 +38,7 @@ PROGMEM const unsigned char instructionLength[] =
 #define OP_RET              0x18
 #define OP_SYNC             0x19
 #define OP_ASYNC            0x1A
+#define OP_CALLE            0x1B
 
 typedef struct VmThread
 {
@@ -85,6 +58,27 @@ typedef struct VmArgBin
     VmThread* thread;
     void* returnAddr;
     void* methodAddr;
-} VmArgBin;    
+} VmArgBin;
+
+char getChar(void* pos);
+int getInt(void* pos);
+long getLong(void* pos);
+void* getPtr(void* pos);
+void setChar(void* pos, char c);
+void setInt(void* pos, int i);
+void setLong(void* pos, long l);
+void setPtr(void* pos, void* ptr);
+char popChar(VmThread* t);
+int popInt(VmThread* t);
+long popLong(VmThread* t);
+void* popPtr(VmThread* t);
+void pushChar(VmThread* t, char c);
+void pushInt(VmThread* t, int i);
+void pushLong(VmThread* t, long l);
+void pushPtr(VmThread* t, void* p);
+void pushArray(VmThread* t, const void* data, int size);
+void popArray(void* data, VmThread* t, int size);
+
+void loadProgramSegment(int totalLength, int seq, int segmentLength, void* buffer);
 
 #endif
