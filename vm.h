@@ -7,10 +7,12 @@
 #define VM_NARGBINS 8
 #define VM_NTHREADS 4
 
+#define VM_MEMORY_SIZE 4096
+
 #include <avr/pgmspace.h>
 // save some unsigned ints
 
-extern PROGMEM const unsigned char instructionLength[];
+extern const PROGMEM unsigned char instructionLength[];
 
 #define OP_PUSHFP           0x01
 #define OP_PUSHIMM          0x02

@@ -112,6 +112,8 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
             self->seq |= ((int)byte) << (8*self->subState++);
             if(self->subState > 1)
             {
+                if(self->seq < self->confirmedReceived)
+                    self->confirmedReceived = self->seq;
                 self->subState = 0;
                 self->progRecvState = ExpectingData;
             }

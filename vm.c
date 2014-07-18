@@ -11,7 +11,7 @@ int programSection;
 int entryPoint;
 int externSection;
 
-PROGMEM const unsigned char instructionLength[] =
+const unsigned PROGMEM char instructionLength[] =
 {   0,
     3, // OP_PUSHFP
     3, // OP_PUSHIMM
@@ -42,7 +42,7 @@ PROGMEM const unsigned char instructionLength[] =
     3  // OP_CALLE
 };
 
-char mem[4096];
+char mem[VM_MEMORY_SIZE];
 
 VmArgBin vmArgBins[VM_NARGBINS];
 VmThread vmThreads[VM_NTHREADS];
@@ -90,11 +90,11 @@ void vmStart()
 void vmInit()
 {
     for(int i = 0; i < VM_NARGBINS - 1; i++)
-    vmArgBinStack[i].next = &(vmArgBinStack[i+1]);
+        vmArgBinStack[i].next = &(vmArgBinStack[i+1]);
     vmArgBinStack[VM_NARGBINS-1].next = 0;
     
     for(int i = 0; i < VM_NTHREADS - 1; i++)
-    vmThreadStack[i].next = &(vmThreadStack[i+1]);
+        vmThreadStack[i].next = &(vmThreadStack[i+1]);
     vmThreadStack[VM_NTHREADS-1].next = 0;
 }
 
@@ -204,9 +204,10 @@ inline void popArray(void* data, VmThread* t, int size)
 
 void* getAddrFromName(const char* name)
 {
+    // This is hardcoded and lame, but will use this for now
     if(strcmp(name, "toggleLed") == 0)
         return (void*) vmToggleLed;
-    else if(strcmp(name, "toggleLed") == 0)
+    else if(strcmp(name, "setLed") == 0)
         return (void*) vmSetLed;
     return 0;
 }    
@@ -225,23 +226,43 @@ void linkProgram()
         case OP_PUSHDWORDADDR:
         case OP_POPBYTEADDR:
         case OP_POPWORDADDR:
-        case OP_POPDWORDADDR:
-        case OP_CALL: ;
+        case OP_POPDWORDADDR: ;
             int addr = getInt(pos + 1);
+            setPtr(pos + 1, mem + addr);
+            break;
+        case OP_CALL:
+        case OP_CALLE: ;
+            addr = getInt(pos + 1);
             if(addr < externSection)
                 setPtr(pos + 1, mem + addr);
             else
             {
-                // set to OP_CALLE ?
-                setPtr(pos + 1, getAddrFromName(pos));
-            }                
+                setChar(pos, OP_CALLE);
+                setPtr(pos + 1, getAddrFromName(mem + addr));
+            }
+            break;
+        default:
+            break;
         }
-        pos += instructionLength[opCode];        
+        pos += pgm_read_byte(instructionLength + opCode);
     }
 }
 
 void initStacks()
 {
+    int totStackSize = (VM_MEMORY_SIZE - externSection);
+    int stackSize = totStackSize/VM_NTHREADS;
+    
+    vmThreads->bottom = mem + externSection;
+    vmThreads->stack = mem + externSection + stackSize + totStackSize % VM_NTHREADS;
+
+    VmThread* lastThread = vmThreads;
+    for(VmThread* thread = vmThreads->next; thread; thread = thread->next)
+    {
+        thread->bottom = lastThread->stack;
+        thread->stack = thread->bottom + stackSize;
+        lastThread = thread;
+    }        
 }           
 
 void loadProgramSegment(int totalLength, int seq, int segmentLength, void* buffer)
@@ -251,13 +272,12 @@ void loadProgramSegment(int totalLength, int seq, int segmentLength, void* buffe
     // loop through active msgs, check if meth == exec, abort those who are
     
     // clear all I/O callback functions as well
-    
     currentlyLoading = true;
     
     for(int i = 0; i < segmentLength; i++)
         mem[seq++] = ((char*) buffer)[i];
     
-    if(seq + segmentLength == totalLength)
+    if(seq == totalLength)
     {
         // Extract the header information and shift the code backwards
         programSection = getInt(mem);
