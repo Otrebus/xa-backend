@@ -41,7 +41,43 @@ const unsigned PROGMEM char instructionLength[] =
     3, // OP_RET
     1, // OP_SYNC
     1, // OP_ASYNC
-    3  // OP_CALLE
+    3, // OP_CALLE
+    1, // OP_ADDBYTE
+    1, // OP_ADDWORD
+    1, // OP_ADDDWORD
+    1, // OP_SUBBYTE
+    1, // OP_SUBWORD
+    1, // OP_SUBDWORD
+    1, // OP_MULBYTE
+    1, // OP_MULWORD
+    1, // OP_MULDWORD
+    1, // OP_DIVBYTE
+    1, // OP_DIVWORD
+    1, // OP_DIVDWORD
+    1, // OP_MODBYTE
+    1, // OP_MODWORD
+    1, // OP_MODDWORD
+    1, // OP_ANDBYTE
+    1, // OP_ANDWORD
+    1, // OP_ANDDWORD
+    1, // OP_ORBYTE
+    1, // OP_ORWORD
+    1, // OP_ORDWORD
+    1, // OP_XORBYTE
+    1, // OP_XORWORD
+    1, // OP_XORDWORD
+    1, // OP_JGZBYTE
+    3, // OP_JGZWORD
+    3, // OP_JGZDWORD
+    3, // OP_JGEZBYTE
+    3, // OP_JGEZWORD
+    3, // OP_JGEZDWORD
+    3, // OP_JEZBYTE
+    3, // OP_JEZWORD
+    3, // OP_JEZDWORD
+    3, // OP_JNEZBYTE
+    3, // OP_JNEZWORD
+    3  // OP_JNEZDWORD
 };
 
 char mem[VM_MEMORY_SIZE];
@@ -282,10 +318,10 @@ void loadProgramSegment(int totalLength, int seq, int segmentLength, void* buffe
     if(seq == totalLength)
     {
         // Extract the header information and shift the code backwards
-        entryObject = getInt(mem);
-        programSection = getInt(mem + 2);
-        entryPoint = getInt(mem + 4);
-        externSection = getInt(mem + 6);
+        entryObject = mem + getInt(mem);
+        programSection = mem + getInt(mem + 2);
+        entryPoint = mem + getInt(mem + 4);
+        externSection = mem + getInt(mem + 6);
         for(int i = 0; i < totalLength - 8; i++)
         mem[i] = mem[i + 8];
         
@@ -497,7 +533,102 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         void (*fun)(VmThread*) = getPtr(thread->pc + 1);
         fun(thread);
         thread->fp = savedFp;
-        thread->pc += 3;        
+        thread->pc += 3;    
+           
+    case OP_ADDBYTE: ;
+        // TODO: many of these can be optimized
+        char a = popChar(thread);
+        char b = popChar(thread);
+        pushChar(thread, a + b);
+        thread->pc += 1;
+        
+    case OP_ADDWORD:
+        a = popInt(thread);
+        b = popInt(thread);
+        pushInt(thread, a + b);
+        thread->pc += 1;
+
+    case OP_ADDDWORD:
+        a = popLong(thread);
+        b = popLong(thread);
+        pushLong(thread, a + b);
+        thread->pc += 1;
+
+    case OP_SUBBYTE:
+    case OP_SUBWORD:
+    case OP_SUBDWORD:
+    case OP_MULBYTE:
+    case OP_MULWORD:
+    case OP_MULDWORD:
+    case OP_DIVBYTE:
+    case OP_DIVWORD:
+    case OP_DIVDWORD:
+    case OP_MODBYTE:
+    case OP_MODWORD:
+    case OP_MODDWORD:
+    case OP_ANDBYTE:
+    case OP_ANDWORD:
+    case OP_ANDDWORD:
+    case OP_ORBYTE:
+    case OP_ORWORD:
+    case OP_ORDWORD:
+    case OP_XORBYTE:
+    case OP_XORWORD:
+    case OP_XORDWORD:
+    case OP_JGZBYTE:
+    case OP_JGZWORD:
+    case OP_JGZDWORD:
+    case OP_JGEZBYTE:
+    case OP_JGEZWORD:
+    case OP_JGEZDWORD:
+    case OP_JEZBYTE:
+        a = popChar(thread);
+        if(a == 0)
+            thread->pc = getPtr(thread->pc + 1);
+        else
+            thread->pc += 3;
+        break;
+                    
+    case OP_JEZWORD:
+        a = popInt(thread);
+        if(a == 0)
+        thread->pc = getPtr(thread->pc + 1);
+        else
+            thread->pc += 3;
+        break;
+        
+    case OP_JEZDWORD:
+        a = popLong(thread);
+        if(a == 0)
+            thread->pc = getPtr(thread->pc + 1);
+        else
+            thread->pc += 3;
+        break;
+        
+    case OP_JNEZBYTE:
+        a = popChar(thread);
+        if(a != 0)
+            thread->pc = getPtr(thread->pc + 1);
+        else
+            thread->pc += 3;
+        break;
+        
+    case OP_JNEZWORD:
+        a = popInt(thread);
+        if(a != 0)
+            thread->pc = getPtr(thread->pc + 1);
+        else
+            thread->pc += 3;
+        break;    
+        
+    case OP_JNEZDWORD:
+        a = popLong(thread);
+        if(a == 0)
+            thread->pc = getPtr(thread->pc + 1);
+        else
+            thread->pc += 3;
+        break;
+    ;
     }
     return true;
 }

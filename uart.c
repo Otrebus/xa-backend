@@ -15,7 +15,9 @@ void sendAck(Uart* self)
     unsigned long chkSum = 0;
     chkSum = sendBuf[1] + sendBuf[2] + sendBuf[3];
     *((unsigned long*) (&sendBuf[4])) = chkSum;
-    transmit(self, sizeof(sendBuf), sendBuf);
+    transmit(self, 1, sendBuf);
+    transmitChecked(self, sizeof(sendBuf) - 2, sendBuf + 1);
+    transmit(self, 1, sendBuf + sizeof(sendBuf) - 1);
 }
 
 void addToChecksum(Uart* self, unsigned char byteToAdd)
@@ -62,6 +64,41 @@ int transmit(Uart* self, unsigned int length, unsigned char* buffer)
         UDR0 = self->transBuf[self->pStart];
         self->pStart = (self->pStart + 1) % UART_TB_SIZE;
     }        
+
+    return 1;
+}
+
+int transmitChecked(Uart* self, unsigned int length, unsigned char* buffer)
+{
+    // Check if the transmission buffer can hold what they want to send
+    if((self->pStart > self->pEnd && length >= (self->pStart - self->pEnd))
+    || (self->pEnd >= self->pStart && length >= UART_TB_SIZE - (self->pEnd - self->pStart)))
+    return 0;
+
+    for(int i = 0; i < length; i++)
+    {
+        if(buffer[i] == FRAME_DELIMITER || buffer[i] == ESCAPE_OCTET)
+        {
+            self->transBuf[self->pEnd] = ESCAPE_OCTET; 
+            self->pEnd = (self->pEnd + 1) % UART_TB_SIZE;
+            self->transBuf[self->pEnd] = buffer[i] ^ (1 << 5);
+            self->pEnd = (self->pEnd + 1) % UART_TB_SIZE;
+        }
+        else
+        {
+            self->transBuf[self->pEnd] = buffer[i];
+            self->pEnd = (self->pEnd + 1) % UART_TB_SIZE;
+        }
+    }
+
+    if(!self->transmitting && length > 0)
+    {
+        self->transmitting = true;
+        // Gotta wait until we can write the first byte, rest is interrupt driven though
+        while ((UCSR0A & (1 << UDRE0)) == 0);
+        UDR0 = self->transBuf[self->pStart];
+        self->pStart = (self->pStart + 1) % UART_TB_SIZE;
+    }
 
     return 1;
 }
@@ -119,7 +156,7 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
             }
             break;
         case ExpectingData:
-            if(byte == FRAME_DELIMITER)
+            if(byte == FRAME_DELIMITER && !self->escape)
             {
                 if(self->pBuf < 4)
                     return 0;
@@ -185,33 +222,30 @@ int handleReceivedByte(Uart* self, int arg)
         arg = rand() % 256;
     if(rand() % 5 == 0)
         arg = FRAME_DELIMITER;*/
-    unsigned char byte = (char) arg;
+    unsigned char byte = (unsigned char) arg;
     if(byte == 0x7D)
     {
         self->escape = true;
         return 0;
     }
     if(self->escape)
-    {
         byte = byte ^ (1 << 5);
-        self->escape = false;
-    }
     
     switch(self->recvState)
     {
         case RecvIdle:
-            if(byte == FRAME_DELIMITER) // Delimiter, starts new frame
+            if(byte == FRAME_DELIMITER && !self->escape) // Delimiter, starts new frame
             self->recvState = Receiving;
             break;
         case Receiving:
-            if(byte == INITSEND_HEADER) // Sender wants to reprogram
+            if(byte == INITSEND_HEADER && !self->escape) // Sender wants to reprogram
             {
                 addToChecksum(self, byte);
                 self->recvState = ProgReceiving;
                 self->progRecvState = ExpectingLength;
                 self->subState = 0;
             }
-            else if(byte == MORESEND_HEADER)
+            else if(byte == MORESEND_HEADER && !self->escape)
             {
                 addToChecksum(self, byte);
                 self->recvState = ProgReceiving;
@@ -222,7 +256,7 @@ int handleReceivedByte(Uart* self, int arg)
                 self->recvState = AppReceiving;
             break;
         case AppReceiving:
-            if(byte == FRAME_DELIMITER)
+            if(byte == FRAME_DELIMITER && !self->escape)
             {
                 self->recvState = RecvIdle;
     //            handleCompleteAppFrame(self);
@@ -234,6 +268,9 @@ int handleReceivedByte(Uart* self, int arg)
             handleReceivedProgByte(self, byte);
             break;
     }
+    if(self->escape)
+        self->escape = false;
+    
     return 0;
 }
 

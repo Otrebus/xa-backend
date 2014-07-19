@@ -57,6 +57,7 @@ typedef struct {
 extern Uart uart;
 
 int transmit(Uart* self, unsigned int length, unsigned char* buffer);
+int transmitChecked(Uart* self, unsigned int length, unsigned char* buffer);
 int uartReceiveInterrupt(Uart* self, int arg);
 int uartSentInterrupt(Uart* self, int arg);
 void setupUart();
