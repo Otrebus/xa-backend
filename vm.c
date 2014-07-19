@@ -7,6 +7,8 @@
 #include <string.h>
 
 bool currentlyLoading = false;
+
+int entryObject;
 int programSection;
 int entryPoint;
 int externSection;
@@ -280,14 +282,19 @@ void loadProgramSegment(int totalLength, int seq, int segmentLength, void* buffe
     if(seq == totalLength)
     {
         // Extract the header information and shift the code backwards
-        programSection = getInt(mem);
-        entryPoint = getInt(mem + 2);
-        externSection = getInt(mem + 4);
-        for(int i = 0; i < totalLength - 6; i++)
-        mem[i] = mem[i + 6];
+        entryObject = getInt(mem);
+        programSection = getInt(mem + 2);
+        entryPoint = getInt(mem + 4);
+        externSection = getInt(mem + 6);
+        for(int i = 0; i < totalLength - 8; i++)
+        mem[i] = mem[i + 8];
         
         linkProgram();
         initStacks();
+        VmArgBin* bin = popVmArgBin();
+        bin->methodAddr = mem + entryPoint;
+        bin->argSize = 0;
+        ASYNC(entryObject, exec, bin);
     }
 }
 
@@ -431,7 +438,7 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
     case OP_RET: ;
         int spDec = getInt(thread->pc + 1);
         // $sp = $fp + arg + 4
-        thread->sp = thread->fp + spDec + 4;
+        thread->sp = thread->fp + spDec - 2;
         // $pc = [$fp + 2]
         void* retAddr = getPtr(thread->fp + 2);
         thread->pc = retAddr;
