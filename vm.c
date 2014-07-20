@@ -8,10 +8,10 @@
 
 bool currentlyLoading = false;
 
-int entryObject;
-int programSection;
-int entryPoint;
-int externSection;
+void* entryObject;
+void* programSection;
+void* entryPoint;
+void* externSection;
 
 const unsigned PROGMEM char instructionLength[] =
 {   0,
@@ -66,7 +66,7 @@ const unsigned PROGMEM char instructionLength[] =
     1, // OP_XORBYTE
     1, // OP_XORWORD
     1, // OP_XORDWORD
-    1, // OP_JGZBYTE
+    3, // OP_JGZBYTE
     3, // OP_JGZWORD
     3, // OP_JGZDWORD
     3, // OP_JGEZBYTE
@@ -252,8 +252,8 @@ void* getAddrFromName(const char* name)
 
 void linkProgram()
 {
-    char* pos = mem + programSection;
-    while(pos < mem + externSection)
+    void* pos = programSection;
+    while(pos < externSection)
     {
         unsigned char opCode = getChar(pos);
         switch(opCode)
@@ -271,7 +271,7 @@ void linkProgram()
         case OP_CALL:
         case OP_CALLE: ;
             addr = getInt(pos + 1);
-            if(addr < externSection)
+            if(mem + addr < (char*) externSection)
                 setPtr(pos + 1, mem + addr);
             else
             {
@@ -288,11 +288,11 @@ void linkProgram()
 
 void initStacks()
 {
-    int totStackSize = (VM_MEMORY_SIZE - externSection);
+    int totStackSize = (VM_MEMORY_SIZE - ((int) externSection - (int) mem));
     int stackSize = totStackSize/VM_NTHREADS;
     
-    vmThreads->bottom = mem + externSection;
-    vmThreads->stack = mem + externSection + stackSize + totStackSize % VM_NTHREADS;
+    vmThreads->bottom = externSection;
+    vmThreads->stack = externSection + stackSize + totStackSize % VM_NTHREADS;
 
     VmThread* lastThread = vmThreads;
     for(VmThread* thread = vmThreads->next; thread; thread = thread->next)
@@ -328,8 +328,9 @@ void loadProgramSegment(int totalLength, int seq, int segmentLength, void* buffe
         linkProgram();
         initStacks();
         VmArgBin* bin = popVmArgBin();
-        bin->methodAddr = mem + entryPoint;
+        bin->methodAddr = entryPoint;
         bin->argSize = 0;
+        bin->thread = popVmThread();
         ASYNC(entryObject, exec, bin);
     }
 }
@@ -400,7 +401,7 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         thread->pc += 3;
         break;
 
-    case OP_PUSHDWORDIMM: // push dword imm
+    case OP_PUSHDWORDIMM: ; // push dword 
         pushLong(thread, getLong(thread->pc + 1));
         thread->pc += 5;
         break;
@@ -474,7 +475,7 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
     case OP_RET: ;
         int spDec = getInt(thread->pc + 1);
         // $sp = $fp + arg + 4
-        thread->sp = thread->fp + spDec - 2;
+        thread->sp = thread->fp + spDec + 4;
         // $pc = [$fp + 2]
         void* retAddr = getPtr(thread->fp + 2);
         thread->pc = retAddr;
@@ -484,13 +485,13 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         if(thread->fp == 0)
         {
             if(retAddr == 0) // This was an async call, recycle the thread obj
-            popVmThread(thread);
+                pushVmThread(thread);
             return false; // Stop executing instructions on this object
         }
         
     case OP_SYNC: ;
-        void* methodAddress = popPtr(thread);
         void* obj = popPtr(thread);
+        void* methodAddress = popPtr(thread);
         // We can reuse the current thread in sync calls
         argBin->thread = thread;
         argBin->methodAddr = methodAddress;
@@ -537,21 +538,21 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
            
     case OP_ADDBYTE: ;
         // TODO: many of these can be optimized
-        char a = popChar(thread);
-        char b = popChar(thread);
-        pushChar(thread, a + b);
+        char ca = popChar(thread);
+        char cb = popChar(thread);
+        pushChar(thread, ca + cb);
         thread->pc += 1;
         
-    case OP_ADDWORD:
-        a = popInt(thread);
-        b = popInt(thread);
-        pushInt(thread, a + b);
+    case OP_ADDWORD: ;
+        int ia = popInt(thread);
+        int ib = popInt(thread);
+        pushInt(thread, ia + ib);
         thread->pc += 1;
 
-    case OP_ADDDWORD:
-        a = popLong(thread);
-        b = popLong(thread);
-        pushLong(thread, a + b);
+    case OP_ADDDWORD: ;
+        long la = popLong(thread);
+        long lb = popLong(thread);
+        pushLong(thread, la + lb);
         thread->pc += 1;
 
     case OP_SUBBYTE:
@@ -582,48 +583,48 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
     case OP_JGEZWORD:
     case OP_JGEZDWORD:
     case OP_JEZBYTE:
-        a = popChar(thread);
-        if(a == 0)
+        ca = popChar(thread);
+        if(ca == 0)
             thread->pc = getPtr(thread->pc + 1);
         else
             thread->pc += 3;
         break;
                     
     case OP_JEZWORD:
-        a = popInt(thread);
-        if(a == 0)
+        ia = popInt(thread);
+        if(ia == 0)
         thread->pc = getPtr(thread->pc + 1);
         else
             thread->pc += 3;
         break;
         
     case OP_JEZDWORD:
-        a = popLong(thread);
-        if(a == 0)
+        la = popLong(thread);
+        if(la == 0)
             thread->pc = getPtr(thread->pc + 1);
         else
             thread->pc += 3;
         break;
         
     case OP_JNEZBYTE:
-        a = popChar(thread);
-        if(a != 0)
+        ca = popChar(thread);
+        if(ca != 0)
             thread->pc = getPtr(thread->pc + 1);
         else
             thread->pc += 3;
         break;
         
     case OP_JNEZWORD:
-        a = popInt(thread);
-        if(a != 0)
+        ia = popInt(thread);
+        if(ia != 0)
             thread->pc = getPtr(thread->pc + 1);
         else
             thread->pc += 3;
         break;    
         
     case OP_JNEZDWORD:
-        a = popLong(thread);
-        if(a == 0)
+        la = popLong(thread);
+        if(la == 0)
             thread->pc = getPtr(thread->pc + 1);
         else
             thread->pc += 3;
