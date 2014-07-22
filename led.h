@@ -12,7 +12,6 @@ typedef struct
     Object super;
 } Led;
 
-int blink(Led* self, int dummy);
 void setupLed();
 int turnOn(Led* self, int dummy);
 int turnOff(Led* self, int dummy);

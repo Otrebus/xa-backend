@@ -27,7 +27,6 @@ void addToChecksum(Uart* self, unsigned char byteToAdd)
 
 int handleCompleteAppFrame(Uart* self)
 {
-    blink(&led, 1);
     // TODO: this is just test code, fix into some callback call or something
     unsigned char stuff[4] = {FRAME_DELIMITER, 0xaa, 0xDE, FRAME_DELIMITER };
     transmit(self, 4, stuff);

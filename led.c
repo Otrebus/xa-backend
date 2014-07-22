@@ -36,13 +36,6 @@ bool isOn(Led* self, int dummy)
     return (PORTB | (1 << 7)) != 0;
 }
 
-int blink(Led* self, int dummy)
-{
-    toggle(self, dummy);
-    AFTER(MSEC(250), self, blink, 0);
-    return 0;
-}
-
 void vmToggleLed(VmThread* thread)
 {
     // No arguments to this function, so we don't need to care about the thread sent

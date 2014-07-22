@@ -265,6 +265,19 @@ void linkProgram()
         case OP_POPBYTEADDR:
         case OP_POPWORDADDR:
         case OP_POPDWORDADDR: ;
+        case OP_JGZBYTE:
+        case OP_JGZWORD:
+        case OP_JGZDWORD:
+        case OP_JGEZBYTE:
+        case OP_JGEZWORD:
+        case OP_JGEZDWORD:
+        case OP_JEZBYTE:
+        case OP_JEZWORD:
+        case OP_JEZDWORD:
+        case OP_JNEZBYTE:
+        case OP_JNEZWORD:
+        case OP_JNEZDWORD:
+        case OP_JMP: ;
             int addr = getInt(pos + 1);
             setPtr(pos + 1, mem + addr);
             break;
@@ -535,6 +548,7 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         fun(thread);
         thread->fp = savedFp;
         thread->pc += 3;    
+        break;
            
     case OP_ADDBYTE: ;
         // TODO: many of these can be optimized
@@ -542,22 +556,43 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         char cb = popChar(thread);
         pushChar(thread, ca + cb);
         thread->pc += 1;
+        break;
         
     case OP_ADDWORD: ;
         int ia = popInt(thread);
         int ib = popInt(thread);
         pushInt(thread, ia + ib);
         thread->pc += 1;
-
+        break;
+        
     case OP_ADDDWORD: ;
         long la = popLong(thread);
         long lb = popLong(thread);
         pushLong(thread, la + lb);
         thread->pc += 1;
-
+        break;
+        
     case OP_SUBBYTE:
+        ca = popChar(thread);
+        cb = popChar(thread);
+        pushChar(thread, ca - cb);
+        thread->pc += 1;
+        break;        
+        
     case OP_SUBWORD:
+        ia = popInt(thread);
+        ib = popInt(thread);
+        pushInt(thread, ia - ib);
+        thread->pc += 1;
+        break;
+            
     case OP_SUBDWORD:
+        la = popLong(thread);
+        lb = popLong(thread);
+        pushLong(thread, la - lb);
+        thread->pc += 1;
+        break;    
+    
     case OP_MULBYTE:
     case OP_MULWORD:
     case OP_MULDWORD:
@@ -624,12 +659,15 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         
     case OP_JNEZDWORD:
         la = popLong(thread);
-        if(la == 0)
+        if(la != 0)
             thread->pc = getPtr(thread->pc + 1);
         else
             thread->pc += 3;
         break;
-    ;
+        
+    case OP_JMP:
+        thread->pc = getPtr(thread->pc + 1);
+        break;
     }
     return true;
 }

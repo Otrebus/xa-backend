@@ -77,6 +77,7 @@ extern const PROGMEM unsigned char instructionLength[];
 #define OP_JNEZBYTE 0x3d
 #define OP_JNEZWORD 0x3e
 #define OP_JNEZDWORD 0x3f
+#define OP_JMP 0x40
 
 typedef struct VmThread
 {
