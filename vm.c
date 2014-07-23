@@ -282,6 +282,7 @@ void linkProgram()
             int addr = getInt(pos + 1);
             setPtr(pos + 1, mem + addr);
             break;
+            
         case OP_CALL:
         case OP_CALLE: ;
             addr = getInt(pos + 1);
@@ -502,6 +503,7 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
                 pushVmThread(thread);
             return false; // Stop executing instructions on this object
         }
+        break;
         
     case OP_SYNC: ;
         void* obj = popPtr(thread);
@@ -738,7 +740,7 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
     
     case OP_JGZDWORD:
         la = popLong(thread);
-        if(la == 0)
+        if(la > 0)
             thread->pc = getPtr(thread->pc + 1);
         else
             thread->pc += 3;
