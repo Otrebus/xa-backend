@@ -81,11 +81,11 @@ extern const PROGMEM unsigned char instructionLength[];
 
 typedef struct VmThread
 {
-    void* fp;
-    void* sp;
-    void* pc;
-    void* stack;
-    void* bottom;
+    char* fp;
+    char* sp;
+    char* pc;
+    char* stack;
+    char* bottom;
     struct VmThread* next;
 }  VmThread;
 
@@ -95,8 +95,8 @@ typedef struct VmArgBin
     char argStack[VM_MAX_ARGSIZE];
     struct VmArgBin* next;
     VmThread* thread;
-    void* returnAddr;
-    void* methodAddr;
+    char* returnAddr;
+    char* methodAddr;
 } VmArgBin;
 
 char getChar(void* pos);

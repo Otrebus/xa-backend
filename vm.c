@@ -77,7 +77,8 @@ const unsigned PROGMEM char instructionLength[] =
     3, // OP_JEZDWORD
     3, // OP_JNEZBYTE
     3, // OP_JNEZWORD
-    3  // OP_JNEZDWORD
+    3, // OP_JNEZDWORD
+    3  // OP_JMP
 };
 
 char mem[VM_MEMORY_SIZE];
@@ -305,13 +306,13 @@ void initStacks()
     int stackSize = totStackSize/VM_NTHREADS;
     
     vmThreads->bottom = externSection;
-    vmThreads->stack = externSection + stackSize + totStackSize % VM_NTHREADS;
+    vmThreads->fp = vmThreads->pc = vmThreads->stack = externSection + stackSize + totStackSize % VM_NTHREADS;
 
     VmThread* lastThread = vmThreads;
     for(VmThread* thread = vmThreads->next; thread; thread = thread->next)
     {
         thread->bottom = lastThread->stack;
-        thread->stack = thread->bottom + stackSize;
+        thread->fp = thread->pc = thread->stack = thread->bottom + stackSize;
         lastThread = thread;
     }        
 }           
@@ -594,29 +595,179 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         break;    
     
     case OP_MULBYTE:
+        ca = popChar(thread);
+        cb = popChar(thread);
+        pushChar(thread, ca*cb);
+        thread->pc += 1;
+        break;
+            
     case OP_MULWORD:
+        ia = popInt(thread);
+        ib = popInt(thread);
+        pushInt(thread, ia*ib);
+        thread->pc += 1;
+        break;
+        
     case OP_MULDWORD:
+        la = popLong(thread);
+        lb = popLong(thread);
+        pushLong(thread, la*lb);
+        thread->pc += 1;
+        break;
+        
     case OP_DIVBYTE:
+        ca = popChar(thread);
+        cb = popChar(thread);
+        pushChar(thread, ca/cb);
+        thread->pc += 1;
+        break;
+        
     case OP_DIVWORD:
+        ia = popInt(thread);
+        ib = popInt(thread);
+        pushInt(thread, ia/ib);
+        thread->pc += 1;
+        break;
+        
     case OP_DIVDWORD:
+        la = popLong(thread);
+        lb = popLong(thread);
+        pushLong(thread, la/lb);
+        thread->pc += 1;
+        break;
+        
     case OP_MODBYTE:
+        ca = popChar(thread);
+        cb = popChar(thread);
+        pushChar(thread, ca%cb);
+        thread->pc += 1;
+        break;
+
     case OP_MODWORD:
+        ia = popInt(thread);
+        ib = popInt(thread);
+        pushInt(thread, ia%ib);
+        thread->pc += 1;
+        break;
+            
     case OP_MODDWORD:
+        la = popLong(thread);
+        lb = popLong(thread);
+        pushLong(thread, la%lb);
+        thread->pc += 1;
+        break;
+        
     case OP_ANDBYTE:
+        ca = popChar(thread);
+        cb = popChar(thread);
+        pushChar(thread, ca & cb);
+        thread->pc += 1;
+        break;
+        
     case OP_ANDWORD:
+        ia = popInt(thread);
+        ib = popInt(thread);
+        pushInt(thread, ia & ib);
+        thread->pc += 1;
+        break;
+        
     case OP_ANDDWORD:
+        la = popLong(thread);
+        lb = popLong(thread);
+        pushLong(thread, la & lb);
+        thread->pc += 1;
+        break;
+        
     case OP_ORBYTE:
+        ca = popChar(thread);
+        cb = popChar(thread);
+        pushChar(thread, ca | cb);
+        thread->pc += 1;
+        break;    
+    
     case OP_ORWORD:
+        ia = popInt(thread);
+        ib = popInt(thread);
+        pushInt(thread, ia | ib);
+        thread->pc += 1;
+        break;
+        
     case OP_ORDWORD:
+        la = popLong(thread);
+        lb = popLong(thread);
+        pushLong(thread, la | lb);
+        thread->pc += 1;
+        break;
+        
     case OP_XORBYTE:
+        ca = popChar(thread);
+        cb = popChar(thread);
+        pushChar(thread, ca ^ cb);
+        thread->pc += 1;
+        break;
+            
     case OP_XORWORD:
+        ia = popInt(thread);
+        ib = popInt(thread);
+        pushInt(thread, ia ^ ib);
+        thread->pc += 1;
+        break;
+            
     case OP_XORDWORD:
+        la = popLong(thread);
+        lb = popLong(thread);
+        pushLong(thread, la ^ lb);
+        thread->pc += 1;
+        break;    
+    
     case OP_JGZBYTE:
+        ca = popChar(thread);
+        if(ca > 0)
+            thread->pc = getPtr(thread->pc + 1);
+        else
+            thread->pc += 3;
+        break;    
+    
     case OP_JGZWORD:
+        ia = popInt(thread);
+        if(ia > 0)
+            thread->pc = getPtr(thread->pc + 1);
+        else
+            thread->pc += 3;
+        break;    
+    
     case OP_JGZDWORD:
+        la = popLong(thread);
+        if(la == 0)
+            thread->pc = getPtr(thread->pc + 1);
+        else
+            thread->pc += 3;
+        break;    
+    
     case OP_JGEZBYTE:
+        ca = popChar(thread);
+        if(ca >= 0)
+            thread->pc = getPtr(thread->pc + 1);
+        else
+            thread->pc += 3;
+        break;    
+    
     case OP_JGEZWORD:
+        ia = popInt(thread);
+        if(ia >= 0)
+            thread->pc = getPtr(thread->pc + 1);
+        else
+            thread->pc += 3;
+        break; 
+    
     case OP_JGEZDWORD:
+        la = popLong(thread);
+        if(la >= 0)
+            thread->pc = getPtr(thread->pc + 1);
+        else
+            thread->pc += 3;
+        break;    
+    
     case OP_JEZBYTE:
         ca = popChar(thread);
         if(ca == 0)
