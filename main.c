@@ -1,6 +1,7 @@
 #include "uart.h"
-#include "TinyTimber.h"
 #include "led.h"
+#include "vm.h"
+#include "TinyTimber.h"
 
 Led led;
 

@@ -99,6 +99,7 @@ typedef struct VmArgBin
     char* methodAddr;
 } VmArgBin;
 
+void vmInit();
 char getChar(void* pos);
 int getInt(void* pos);
 long getLong(void* pos);

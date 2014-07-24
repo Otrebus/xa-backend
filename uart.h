@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include "TinyTimber.h"
+#include "vm.h"
 
 #define F_CPU 16000000
 #define USART_BAUDRATE 9600
@@ -49,6 +50,9 @@ typedef struct {
     unsigned char pStart;                     // First untransmitted char
     unsigned char pEnd;                       // First empty space in buffer
     Msg timeout;
+    
+    Object* callbackObj;
+    void* callbackMeth;
 } Uart;
 
 #define initUart() { initObject(), {}, {}, 0, 0, 0, 0, RecvIdle, ProgRecvIdle, \
@@ -61,5 +65,8 @@ int transmitChecked(Uart* self, unsigned int length, unsigned char* buffer);
 int uartReceiveInterrupt(Uart* self, int arg);
 int uartSentInterrupt(Uart* self, int arg);
 void setupUart();
+
+void vmTransmit(VmThread* thread);
+void vmSetCallback(VmThread* thread);
 
 #endif

@@ -4,7 +4,6 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <stdbool.h>
-#include <stdlib.h>
 
 Uart uart = initUart();
 
@@ -193,7 +192,6 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
                 self->pBuf = 0;
                 if(self->confirmedReceived == self->programLength)
                 {
-                    handleCompleteAppFrame(self); // TODO: this is of course not what we do
                     self->progRecvState = ProgRecvIdle;
                     self->recvState = RecvIdle;
                 }
@@ -210,17 +208,14 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
 
 int handleReceivedAppByte(Uart* self, unsigned char arg)
 {
-    //self->frameBuffer[self->pBuf++] = (unsigned char) arg;
+    self->frameBuffer[self->pBuf] = arg;
+    self->pBuf = (self->pBuf + 1) % UART_TB_SIZE;
     return 0;
 }
 
 int handleReceivedByte(Uart* self, int arg)
 {
     resetTimeout(self, MSEC(5));
-    /*if(rand() % 10 == 0)
-        arg = rand() % 256;
-    if(rand() % 5 == 0)
-        arg = FRAME_DELIMITER;*/
     unsigned char byte = (unsigned char) arg;
     if(byte == 0x7D)
     {
@@ -258,7 +253,7 @@ int handleReceivedByte(Uart* self, int arg)
             if(byte == FRAME_DELIMITER && !self->escape)
             {
                 self->recvState = RecvIdle;
-    //            handleCompleteAppFrame(self);
+                handleCompleteAppFrame(self);
             }
             else
                 handleReceivedAppByte(self, byte);
@@ -299,7 +294,6 @@ int uartSentInterrupt(Uart* self, int arg)
  
 void setupUart()
 {
-    srand(0);
     // Set baud speed
     UBRR0H = (BAUD_PRESCALE >> 8);
     UBRR0L = BAUD_PRESCALE;
@@ -309,4 +303,50 @@ void setupUart()
     
     // 8 bit frame sizes. 1 stop bit and no parity is on by default
     UCSR0C = (1 << UCSZ00) | (1 << UCSZ01);
+}
+// int transmitChecked(Uart* self, unsigned int length, unsigned char* buffer)
+
+void lockedTransmit(Uart* self, int arg)
+{
+    VmThread* thread = (VmThread*) arg;
+    if(self->transmitting)
+    {
+        setChar(thread->fp + 6, 0);
+        thread->sp = thread->fp + 6;
+        return;
+    }        
+    unsigned char header[] = { FRAME_DELIMITER, 0x00 };
+    unsigned char footer[] = { FRAME_DELIMITER };
+    char length = popChar(thread);
+    unsigned char* buf = (unsigned char*) popPtr(thread);
+    
+    transmit(self, sizeof(header), header);
+    transmitChecked(self, length, buf);
+    transmit(self, sizeof(footer), footer);
+    
+    for(int i = 0; i < length; i++)
+    {
+        while ((UCSR0A & (1 << UDRE0)) == 0);
+        UDR0 = buf[i];
+    }
+    setChar(thread->fp + 6, 0);
+    thread->sp = thread->fp + 6;
+}    
+
+void vmTransmit(VmThread* thread)
+{
+    SYNC(&uart, lockedTransmit, (int) thread);
+}
+
+void setCallback(Uart* self, int arg)
+{
+    VmThread* thread = (VmThread*) arg;
+    self->callbackObj = (Object*) popPtr(thread);
+    self->callbackMeth = popPtr(thread);
+    
+}    
+    
+void vmSetCallback(VmThread* thread)
+{
+    SYNC(&uart, setCallback, (int) thread);
 }
