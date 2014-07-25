@@ -30,8 +30,7 @@ typedef struct {
 typedef struct {
     Object super;                             // Inherited TinyTimber grandfather object
     unsigned char frameBuffer[UART_RB_SIZE];  // Frame reception buffer
-    unsigned char progBuffer[512];            // Program buffer -- TODO: remove this, use external
-    unsigned int pBuf;                        // First free character in frame reception buffer
+    unsigned char pBuf;                       // First free character in frame reception buffer
     unsigned long checksum;                   // Checksum of current segment
     unsigned int confirmedReceived;           // Amount of data with valid checksum received
     unsigned int seq;                         // Sequence number of the current frame
@@ -55,8 +54,8 @@ typedef struct {
     void* callbackMeth;
 } Uart;
 
-#define initUart() { initObject(), {}, {}, 0, 0, 0, 0, RecvIdle, ProgRecvIdle, \
-                     0, false, false,  0, 0,  {}, 0, 0, 0 }
+#define initUart() { initObject(), {}, 0, 0, 0, 0, RecvIdle, ProgRecvIdle, \
+                     0, false, false,  0, 0,  {}, 0, 0, 0, 0, 0 }
                          
 extern Uart uart;
 

@@ -10,7 +10,7 @@
 #define VM_MEMORY_SIZE 4096
 
 #include <avr/pgmspace.h>
-// save some unsigned ints
+#include "TinyTimber.h"
 
 extern const PROGMEM unsigned char instructionLength[];
 
@@ -118,7 +118,9 @@ void pushLong(VmThread* t, long l);
 void pushPtr(VmThread* t, void* p);
 void pushArray(VmThread* t, const void* data, int size);
 void popArray(void* data, VmThread* t, int size);
+VmArgBin* popVmArgBin();
 
 void loadProgramSegment(int totalLength, int seq, int segmentLength, void* buffer);
+void exec(Object* obj, int arg);
 
 #endif

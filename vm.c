@@ -2,6 +2,7 @@
 #include "TinyTimber.h"
 
 #include "led.h"
+#include "uart.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -248,6 +249,10 @@ void* getAddrFromName(const char* name)
         return (void*) vmToggleLed;
     else if(strcmp(name, "setLed") == 0)
         return (void*) vmSetLed;
+    else if(strcmp(name, "setUartCallback") == 0)
+        return (void*) vmSetCallback;
+    else if(strcmp(name, "uartTransmit") == 0)
+        return (void*) vmTransmit;
     return 0;
 }    
 
