@@ -4,6 +4,7 @@
 #include "led.h"
 #include "uart.h"
 
+#include <avr/interrupt.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -94,29 +95,40 @@ void exec(Object* obj, int arg);
 
 VmThread* popVmThread()
 {
+    cli();
     VmThread* ret = vmThreadStack;
     vmThreadStack = vmThreadStack->next;
     ret->sp = ret->stack;
+    ret->fp = ret->sp;
+    ret->pc = 0;
+    sei();
     return ret;
 }
 
 void pushVmThread(VmThread* v)
 {
+    cli();
     v->next = vmThreadStack;
     vmThreadStack = v;
+    sei();
 }
 
 VmArgBin* popVmArgBin()
 {
+    cli();
     VmArgBin* ret = vmArgBinStack;
     vmArgBinStack = vmArgBinStack->next;
+    ret->thread = 0;
+    sei();
     return ret;
 }
 
 void pushVmArgBin(VmArgBin* v)
 {
+    cli();
     v->next = vmArgBinStack;
     vmArgBinStack = v;
+    sei();
 }
 
 void vmStop()
@@ -320,7 +332,10 @@ void initStacks()
         thread->bottom = lastThread->stack;
         thread->fp = thread->pc = thread->stack = thread->bottom + stackSize;
         lastThread = thread;
-    }        
+    }
+    
+     for(VmThread* thread = vmThreads; thread; thread = thread->next)
+        memset(thread->bottom, 0, thread->stack - thread->bottom);
 }           
 
 void loadProgramSegment(int totalLength, int seq, int segmentLength, void* buffer)
@@ -343,12 +358,14 @@ void loadProgramSegment(int totalLength, int seq, int segmentLength, void* buffe
         entryPoint = mem + getInt(mem + 4);
         externSection = mem + getInt(mem + 6);
         for(int i = 0; i < totalLength - 8; i++)
-        mem[i] = mem[i + 8];
+            mem[i] = mem[i + 8];
         
         linkProgram();
         initStacks();
+
         VmArgBin* bin = popVmArgBin();
         bin->methodAddr = entryPoint;
+        bin->returnAddr = 0;
         bin->argSize = 0;
         bin->thread = popVmThread();
         ASYNC(entryObject, exec, bin);
@@ -505,7 +522,10 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         if(thread->fp == 0)
         {
             if(retAddr == 0) // This was an async call, recycle the thread obj
+            {
                 pushVmThread(thread);
+                pushVmArgBin(argBin);
+            }                
             return false; // Stop executing instructions on this object
         }
         break;
@@ -850,8 +870,6 @@ void exec(Object* obj, int arg)
         pushInt(thread, 0); // fake old frame pointer
         thread->fp = thread->sp;
         thread->pc = argBin->methodAddr;
-        // We extracted all the information that we needed from the argBin, so we can recycle it
-        pushVmArgBin(argBin);
     }
     
     while(executeInstruction(thread, argBin));

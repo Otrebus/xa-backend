@@ -27,7 +27,9 @@ void addToChecksum(Uart* self, unsigned char byteToAdd)
 
 int handleCompleteAppFrame(Uart* self)
 {
+    cli();
     VmArgBin* argBin = popVmArgBin();
+    sei();
     unsigned char argStack[] = { self->pBuf, (unsigned char) ((unsigned int) self->frameBuffer) & 0xFF, (unsigned char) ((unsigned int) self->frameBuffer >> 8) & 0xFF };
     argBin->argSize = sizeof(argStack);
     memcpy(argBin->argStack, argStack, argBin->argSize);
@@ -98,19 +100,28 @@ int transmitChecked(Uart* self, unsigned int length, unsigned char* buffer)
 
 void timeout(Uart* self, int dummy)
 {
-//   self->progRecvState = ProgRecvIdle;
-//   self->recvState = RecvIdle;
-//   self->subState = 0;
+   self->progRecvState = ProgRecvIdle;
+   self->recvState = RecvIdle;
+   self->subState = 0;
+   self->timeout = NULL;
 }
 
 void cancelTimeout(Uart* self)
 {
-    ABORT(self->timeout);
+    if(self->timeout)
+    {
+        ABORT(self->timeout);
+        self->timeout = NULL;
+    }        
 }
 
 void resetTimeout(Uart* self, Time t)
 {
-    ABORT(self->timeout);
+    if(self->timeout)
+    {
+        ABORT(self->timeout);
+        self->timeout = NULL;
+    }        
     self->timeout = AFTER(t, self, timeout, 0);
 }
 
@@ -178,10 +189,10 @@ int handleReceivedProgByte(Uart* self, unsigned char byte)
                     self->checksum = 0;
                     return 1;
                 }                    
-                        
+
                 self->confirmedReceived = self->pBuf + self->seq;
-                loadProgramSegment(self->programLength, self->seq, self->pBuf, self->frameBuffer);
                 sendAck(self);
+                loadProgramSegment(self->programLength, self->seq, self->pBuf, self->frameBuffer);
                 self->pBuf = 0;
                 if(self->confirmedReceived == self->programLength)
                 {
@@ -264,7 +275,7 @@ int handleReceivedByte(Uart* self, int arg)
 
 int uartReceiveInterrupt(Uart* self, int arg)
 {
-    handleReceivedByte(self, UDR0);
+    ASYNC(self, handleReceivedByte, UDR0);
     return 0;
 }
 
@@ -298,16 +309,14 @@ void setupUart()
     // 8 bit frame sizes. 1 stop bit and no parity is on by default
     UCSR0C = (1 << UCSZ00) | (1 << UCSZ01);
 }
-// int transmitChecked(Uart* self, unsigned int length, unsigned char* buffer)
 
-void lockedTransmit(Uart* self, int arg)
+int lockedTransmit(Uart* self, int arg)
 {
     VmThread* thread = (VmThread*) arg;
-    if(self->transmitting)
+    if(self->transmitting) // TODO: change to just adding it to the buffer
     {
-        setChar(thread->fp + 6, 0);
-        thread->sp = thread->fp + 6;
-        return;
+        thread->sp = thread->fp + 7;
+        return 0;
     }        
     unsigned char header[] = { FRAME_DELIMITER, 0x00 };
     unsigned char footer[] = { FRAME_DELIMITER };
@@ -318,8 +327,8 @@ void lockedTransmit(Uart* self, int arg)
     transmitChecked(self, length, buf);
     transmit(self, sizeof(footer), footer);
     
-    setChar(thread->fp + 6, 0);
-    thread->sp = thread->fp + 6;
+    thread->sp = thread->fp + 7;
+    return 0;
 }    
 
 void vmTransmit(VmThread* thread)
@@ -327,12 +336,13 @@ void vmTransmit(VmThread* thread)
     SYNC(&uart, lockedTransmit, (int) thread);
 }
 
-void setCallback(Uart* self, int arg)
+int setCallback(Uart* self, int arg)
 {
     VmThread* thread = (VmThread*) arg;
     self->callbackObj = (Object*) getPtr(thread->fp + 4);
     self->callbackMeth = getPtr(thread->fp + 6);
     thread->sp = thread->fp + 8;
+    return 0;
 }
     
 void vmSetCallback(VmThread* thread)

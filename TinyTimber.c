@@ -65,8 +65,8 @@ void DUMPH(unsigned int val) {
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#define STACKSIZE       96
-#define NMSGS           15
+#define STACKSIZE       256
+#define NMSGS           12
 #define NTHREADS        4
 
 #define STATUS()        (SREG & 0x80)
