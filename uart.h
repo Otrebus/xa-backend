@@ -14,12 +14,13 @@
 #define INITSEND_HEADER 0x0A
 #define MORESEND_HEADER 0x0B
 #define ACK_HEADER      0x0C
-#define ECHO_HEADER     0x0D
+#define RESET_HEADER    0x0D
+
 
 #define UART_RB_SIZE 256
 #define UART_TB_SIZE 64 // Must be <= 256
 
-typedef enum { RecvIdle, Receiving, AppReceiving, ProgReceiving } UartRecvState;
+typedef enum { RecvIdle, Receiving, AppReceiving, ProgReceiving, ResetReceiving } UartRecvState;
 typedef enum { ProgRecvIdle, ExpectingLength, ExpectingData, ExpectingSeq } ProgRecvState;
 
 typedef struct {

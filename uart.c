@@ -5,6 +5,10 @@
 #include <avr/interrupt.h>
 #include <stdbool.h>
 #include <string.h>
+#include <avr/wdt.h>
+
+#define soft_reset() do { wdt_enable(WDTO_15MS); for(;;) { } } while(0)
+
 
 Uart uart = initUart();
 
@@ -251,6 +255,8 @@ int handleReceivedByte(Uart* self, int arg)
                 self->progRecvState = ExpectingSeq;
                 self->subState = 0;
             }
+            else if(byte == RESET_HEADER && !self->escape)
+                self->recvState = ResetReceiving;
             else
                 self->recvState = AppReceiving;
             break;
@@ -265,6 +271,10 @@ int handleReceivedByte(Uart* self, int arg)
             break;
         case ProgReceiving:
             handleReceivedProgByte(self, byte);
+            break;
+        case ResetReceiving:
+            if(byte == FRAME_DELIMITER && !self->escape)
+                soft_reset();
             break;
     }
     if(self->escape)
