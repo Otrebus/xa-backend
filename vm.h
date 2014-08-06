@@ -36,48 +36,59 @@ extern const PROGMEM unsigned char instructionLength[];
 #define OP_POPBYTEADDR 0x14
 #define OP_POPWORDADDR 0x15
 #define OP_POPDWORDADDR 0x16
-#define OP_CALL 0x17
-#define OP_RET 0x18
-#define OP_SYNC 0x19
-#define OP_ASYNC 0x1A
-#define OP_CALLE 0x1B
-#define OP_ADDBYTE 0x1C
-#define OP_ADDWORD 0x1D
-#define OP_ADDDWORD 0x1E
-#define OP_SUBBYTE 0x1F
-#define OP_SUBWORD 0x20
-#define OP_SUBDWORD 0x21
-#define OP_MULBYTE 0x22
-#define OP_MULWORD 0x23
-#define OP_MULDWORD 0x24
-#define OP_DIVBYTE 0x25
-#define OP_DIVWORD 0x26
-#define OP_DIVDWORD 0x27
-#define OP_MODBYTE 0x28
-#define OP_MODWORD 0x29
-#define OP_MODDWORD 0x2a
-#define OP_ANDBYTE 0x2b
-#define OP_ANDWORD 0x2c
-#define OP_ANDDWORD 0x2d
-#define OP_ORBYTE 0x2e
-#define OP_ORWORD 0x2f
-#define OP_ORDWORD 0x30
-#define OP_XORBYTE 0x31
-#define OP_XORWORD 0x32
-#define OP_XORDWORD 0x33
-#define OP_JGZBYTE 0x34
-#define OP_JGZWORD 0x35
-#define OP_JGZDWORD 0x36
-#define OP_JGEZBYTE 0x37
-#define OP_JGEZWORD 0x38
-#define OP_JGEZDWORD 0x39
-#define OP_JEZBYTE 0x3a
-#define OP_JEZWORD 0x3b
-#define OP_JEZDWORD 0x3c
-#define OP_JNEZBYTE 0x3d
-#define OP_JNEZWORD 0x3e
-#define OP_JNEZDWORD 0x3f
-#define OP_JMP 0x40
+#define OP_POPBYTE 0x17
+#define OP_POPWORD 0x18
+#define OP_POPDWORD 0x19
+#define OP_CALL 0x1A
+#define OP_RET 0x1B
+#define OP_SYNC 0x1C
+#define OP_ASYNC 0x1D
+#define OP_CALLE 0x1E
+#define OP_ADDBYTE 0x1F
+#define OP_ADDWORD 0x20
+#define OP_ADDDWORD 0x21
+#define OP_SUBBYTE 0x22
+#define OP_SUBWORD 0x23
+#define OP_SUBDWORD 0x24
+#define OP_MULBYTE 0x25
+#define OP_MULWORD 0x26
+#define OP_MULDWORD 0x27
+#define OP_DIVBYTE 0x28
+#define OP_DIVWORD 0x29
+#define OP_DIVDWORD 0x2A
+#define OP_MODBYTE 0x2B
+#define OP_MODWORD 0x2C
+#define OP_MODDWORD 0x2D
+    
+#define OP_ANDBYTE 0x2E
+#define OP_ANDWORD 0x2F
+#define OP_ANDDWORD 0x30
+    
+#define OP_ORBYTE 0x31
+#define OP_ORWORD 0x32
+#define OP_ORDWORD 0x33
+    
+#define OP_XORBYTE 0x34
+#define OP_XORWORD 0x35
+#define OP_XORDWORD 0x36
+    
+#define OP_JGZBYTE 0x37
+#define OP_JGZWORD 0x38
+#define OP_JGZDWORD 0x39
+
+#define OP_JGEZBYTE 0x3A
+#define OP_JGEZWORD 0x3B
+#define OP_JGEZDWORD 0x3C
+    
+#define OP_JEZBYTE 0x3D
+#define OP_JEZWORD 0x3E
+#define OP_JEZDWORD 0x3F
+    
+#define OP_JNEZBYTE 0x40
+#define OP_JNEZWORD 0x41
+#define OP_JNEZDWORD 0x42
+    
+#define OP_JMP 0x43
 
 typedef struct VmThread
 {

@@ -39,6 +39,9 @@ const unsigned PROGMEM char instructionLength[] =
     3, // OP_POPBYTEADDR
     3, // OP_POPWORDADDR
     3, // OP_POPDWORDADDR
+    1, // OP_POPBYTE
+    1, // OP_POPWORD
+    1, // OP_POPDWORD
     3, // OP_CALL
     3, // OP_RET
     1, // OP_SYNC
@@ -500,6 +503,24 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         addr = getPtr(thread->pc + 1);
         setLong(addr, popLong(thread));
         thread->pc += 3;
+        break;
+        
+    case OP_POPBYTE: ;
+        char argc = popChar(thread);
+        addr = popPtr(thread);
+        setChar(addr, argc);
+        break;
+        
+    case OP_POPWORD: ;
+        int argi = popInt(thread);
+        addr = popPtr(thread);
+        setInt(addr, argi);
+        break;
+        
+    case OP_POPDWORD: ;
+        long argl = popLong(thread);
+        addr = popPtr(thread);
+        setLong(addr, argl);
         break;
         
     case OP_CALL:

@@ -38,7 +38,7 @@ int handleCompleteAppFrame(Uart* self)
     argBin->argSize = sizeof(argStack);
     memcpy(argBin->argStack, argStack, argBin->argSize);
     argBin->methodAddr = self->callbackMeth;
-    SYNC(self->callbackObj, exec, argBin);
+    ASYNC(self->callbackObj, exec, argBin);
     return 0;
 }
 
