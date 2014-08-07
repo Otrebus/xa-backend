@@ -509,18 +509,21 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         char argc = popChar(thread);
         addr = popPtr(thread);
         setChar(addr, argc);
+        thread->pc += 1;        
         break;
         
     case OP_POPWORD: ;
         int argi = popInt(thread);
         addr = popPtr(thread);
         setInt(addr, argi);
+        thread->pc += 1;        
         break;
         
     case OP_POPDWORD: ;
         long argl = popLong(thread);
         addr = popPtr(thread);
         setLong(addr, argl);
+        thread->pc += 1;
         break;
         
     case OP_CALL:
