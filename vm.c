@@ -83,7 +83,10 @@ const unsigned PROGMEM char instructionLength[] =
     3, // OP_JNEZBYTE
     3, // OP_JNEZWORD
     3, // OP_JNEZDWORD
-    3  // OP_JMP
+    3, // OP_JMP
+    1, // OP_CMPBYTE
+    1, // OP_CMPWORD
+    1  // OP_CMPDWORD
 };
 
 char mem[VM_MEMORY_SIZE];
@@ -505,23 +508,23 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         thread->pc += 3;
         break;
         
-    case OP_POPBYTE: ;
-        char argc = popChar(thread);
+    case OP_POPBYTE:
         addr = popPtr(thread);
+        char argc = popChar(thread);
         setChar(addr, argc);
         thread->pc += 1;        
         break;
         
-    case OP_POPWORD: ;
-        int argi = popInt(thread);
+    case OP_POPWORD:
         addr = popPtr(thread);
+        int argi = popInt(thread);
         setInt(addr, argi);
         thread->pc += 1;        
         break;
         
-    case OP_POPDWORD: ;
-        long argl = popLong(thread);
+    case OP_POPDWORD:
         addr = popPtr(thread);
+        long argl = popLong(thread);
         setLong(addr, argl);
         thread->pc += 1;
         break;
@@ -869,6 +872,36 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         
     case OP_JMP:
         thread->pc = getPtr(thread->pc + 1);
+        break;
+        
+    case OP_CMPBYTE:
+        ca = popChar(thread);
+        if(ca > 1)
+            pushChar(thread, 1);
+        else if(ca == 0)
+            pushChar(thread, 0);
+        else
+            pushChar(thread, -1);
+        break;
+        
+    case OP_CMPWORD:
+        ia = popInt(thread);
+        if(ia > 1)
+            pushChar(thread, 1);
+        else if(ia == 0)
+            pushChar(thread, 0);
+        else
+            pushChar(thread, -1);
+        break;
+
+    case OP_CMPDWORD:
+        la = popLong(thread);
+        if(la > 1)
+            pushChar(thread, 1);
+        else if(la == 0)
+            pushChar(thread, 0);
+        else
+            pushChar(thread, -1);
         break;
     }
     return true;

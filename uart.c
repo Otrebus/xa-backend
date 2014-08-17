@@ -34,11 +34,11 @@ int handleCompleteAppFrame(Uart* self)
     cli();
     VmArgBin* argBin = popVmArgBin();
     sei();
-    unsigned char argStack[] = { self->pBuf, (unsigned char) ((unsigned int) self->frameBuffer) & 0xFF, (unsigned char) ((unsigned int) self->frameBuffer >> 8) & 0xFF };
+    unsigned char argStack[] = { self->pBuf, (unsigned char) ((unsigned int) self->frameBuffer) & 0xFF, (unsigned char) ((unsigned int) self->frameBuffer >> 8) & 0xFF }; // TODO: using pbuf here is iffy at best
     argBin->argSize = sizeof(argStack);
     memcpy(argBin->argStack, argStack, argBin->argSize);
     argBin->methodAddr = self->callbackMeth;
-    ASYNC(self->callbackObj, exec, argBin);
+    ASYNC(self->callbackObj, exec, argBin); // TODO: why async?
     return 0;
 }
 

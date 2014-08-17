@@ -90,6 +90,10 @@ extern const PROGMEM unsigned char instructionLength[];
     
 #define OP_JMP 0x43
 
+#define OP_CMPBYTE 0x44
+#define OP_CMPWORD 0x45
+#define OP_CMPDWORD 0x46
+
 typedef struct VmThread
 {
     char* fp;
