@@ -72,27 +72,26 @@ extern const PROGMEM unsigned char instructionLength[];
 #define OP_XORWORD 0x35
 #define OP_XORDWORD 0x36
     
-#define OP_JGZBYTE 0x37
-#define OP_JGZWORD 0x38
-#define OP_JGZDWORD 0x39
+#define OP_SGZBYTE 0x37
+#define OP_SGZWORD 0x38
+#define OP_SGZDWORD 0x39
 
-#define OP_JGEZBYTE 0x3A
-#define OP_JGEZWORD 0x3B
-#define OP_JGEZDWORD 0x3C
-    
-#define OP_JEZBYTE 0x3D
-#define OP_JEZWORD 0x3E
-#define OP_JEZDWORD 0x3F
-    
-#define OP_JNEZBYTE 0x40
-#define OP_JNEZWORD 0x41
-#define OP_JNEZDWORD 0x42
+#define OP_SGEZBYTE 0x3A
+#define OP_SGEZWORD 0x3B
+#define OP_SGEZDWORD 0x3C
+           
+#define OP_SEZBYTE 0x3D
+#define OP_SEZWORD 0x3E
+#define OP_SEZDWORD 0x3F
+           
+#define OP_SNEZBYTE 0x40
+#define OP_SNEZWORD 0x41
+#define OP_SNEZDWORD 0x42
     
 #define OP_JMP 0x43
 
-#define OP_CMPBYTE 0x44
-#define OP_CMPWORD 0x45
-#define OP_CMPDWORD 0x46
+#define OP_JEZ 0x44
+#define OP_JNZ 0x45
 
 typedef struct VmThread
 {
