@@ -890,12 +890,15 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
             thread->pc = getPtr(thread->pc + 1);
         else
             thread->pc += 3;
+        break;
+        
     case OP_JNZ:
         ca = popChar(thread);
         if(ca != 0)
             thread->pc = getPtr(thread->pc + 1);
         else
             thread->pc += 3;
+        break;
     }
     return true;
 }
