@@ -17,7 +17,7 @@ void wdt_init(void)
 Led led;
 
 int main(void)
-{        
+{   
     setupLed();
     setupUart();
     vmInit();

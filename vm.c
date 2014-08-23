@@ -286,18 +286,18 @@ void linkProgram()
         case OP_POPBYTEADDR:
         case OP_POPWORDADDR:
         case OP_POPDWORDADDR: ;
-        case OP_JGZBYTE:
-        case OP_JGZWORD:
-        case OP_JGZDWORD:
-        case OP_JGEZBYTE:
-        case OP_JGEZWORD:
-        case OP_JGEZDWORD:
-        case OP_JEZBYTE:
-        case OP_JEZWORD:
-        case OP_JEZDWORD:
-        case OP_JNEZBYTE:
-        case OP_JNEZWORD:
-        case OP_JNEZDWORD:
+        case OP_SGZBYTE:
+        case OP_SGZWORD:
+        case OP_SGZDWORD:
+        case OP_SGEZBYTE:
+        case OP_SGEZWORD:
+        case OP_SGEZDWORD:
+        case OP_SEZBYTE:
+        case OP_SEZWORD:
+        case OP_SEZDWORD:
+        case OP_SNEZBYTE:
+        case OP_SNEZWORD:
+        case OP_SNEZDWORD:
         case OP_JMP: ;
             int addr = getInt(pos + 1);
             setPtr(pos + 1, mem + addr);
@@ -884,7 +884,7 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         thread->pc = getPtr(thread->pc + 1);
         break;
         
-    case OP_JEZ:
+    case OP_JNEZ:
         ca = popChar(thread);
         if(ca == 0)
             thread->pc = getPtr(thread->pc + 1);
@@ -899,6 +899,142 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         else
             thread->pc += 3;
         break;
+        
+    case OP_SLLBYTE:
+        ca = popChar(thread);
+        ca <<= getChar(thread->pc + 1);
+        pushChar(thread, ca);
+        thread->pc += 2;
+        break;
+        
+    case OP_SLLWORD:
+        ia = popInt(thread);
+        ia <<= getChar(thread->pc + 1);
+        pushInt(thread, ia);
+        thread->pc += 2;
+        break;
+    
+    case OP_SLLDWORD:
+        la = popLong(thread);
+        la <<= getChar(thread->pc + 1);
+        pushLong(thread, la);
+        thread->pc += 2;
+        break;
+
+    case OP_SLLVBYTE:
+        ca = popChar(thread);
+        cb = popChar(thread);
+        cb <<= ca;
+        pushChar(thread, cb);
+        thread->pc += 1;
+        break; 
+        
+    case OP_SLLVWORD:
+        ca = popChar(thread);
+        ia = popInt(thread);
+        ia <<= ca;
+        pushInt(thread, ia);
+        thread->pc += 1;
+        break;
+    
+    case OP_SLLVDWORD:
+        ca = popChar(thread);
+        la = popLong(thread);
+        la <<= ca;
+        pushLong(thread, la);
+        thread->pc += 1;
+        break;
+
+    case OP_SRLBYTE:
+        ca = popChar(thread);
+        // This is done to ensure an actual logical shift (signed numbers get arithmetically shifted with >>)
+        ca = *((unsigned char*) &ca) >> getChar(thread->pc + 1);
+        pushChar(thread, ca);
+        thread->pc += 2;
+        break;
+    
+    case OP_SRLWORD:
+        ia = popInt(thread);
+        ca = *((unsigned int*) &ia) >> getChar(thread->pc + 1);
+        pushInt(thread, ia);
+        thread->pc += 2;
+        break;
+    
+    case OP_SRLDWORD:
+        la = popLong(thread);
+        ca = *((unsigned long*) &la) >> getChar(thread->pc + 1);
+        pushLong(thread, la);
+        thread->pc += 2;
+        break;
+
+    case OP_SRLVBYTE:
+        ca = popChar(thread);
+        cb = popChar(thread);
+        cb = *((unsigned char*) &cb) >> ca;
+        pushChar(thread, cb);
+        thread->pc += 1;
+        break;
+        
+    case OP_SRLVWORD:
+        ca = popChar(thread);
+        ia = popInt(thread);
+        ia = *((unsigned int*) &ia) >> ca;
+        pushInt(thread, ia);
+        thread->pc += 1;
+        break;
+            
+    case OP_SRLVDWORD:
+        ca = popChar(thread);
+        la = popLong(thread);
+        la = *((unsigned long*) &la) >> ca;
+        pushLong(thread, la);
+        thread->pc += 1;
+        break;
+
+    case OP_SRABYTE:
+        ca = popChar(thread);
+        ca >>= getChar(thread->pc + 1);
+        pushChar(thread, ca);
+        thread->pc += 2;
+        break;
+        
+    case OP_SRAWORD:
+        ia = popInt(thread);
+        ia >>= getChar(thread->pc + 1);
+        pushInt(thread, ia);
+        thread->pc += 2;
+        break;
+
+    case OP_SRADWORD:
+        la = popLong(thread);
+        la >>= getChar(thread->pc + 1);
+        pushLong(thread, la);
+        thread->pc += 2;
+        break;
+
+    case OP_SRAVBYTE:
+        ca = popChar(thread);
+        cb = popChar(thread);
+        cb = cb >> ca;
+        pushChar(thread, cb);
+        thread->pc += 1;
+        break;
+        
+    case OP_SRAVWORD:    
+        ca = popChar(thread);
+        ia = popInt(thread);
+        ia = ia >> ca;
+        pushInt(thread, ia);
+        thread->pc += 1;
+        break;
+        
+    case OP_SRAVDWORD:
+        ca = popChar(thread);
+        la = popLong(thread);
+        la = la >> ca;
+        pushLong(thread, la);
+        thread->pc += 1;
+        break;    
     }
     return true;
 }

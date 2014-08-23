@@ -90,8 +90,32 @@ extern const PROGMEM unsigned char instructionLength[];
     
 #define OP_JMP 0x43
 
-#define OP_JEZ 0x44
+#define OP_JNEZ 0x44
 #define OP_JNZ 0x45
+
+#define OP_SLLBYTE 0x46
+#define OP_SLLWORD 0x47
+#define OP_SLLDWORD 0x48
+
+#define OP_SLLVBYTE 0x49
+#define OP_SLLVWORD 0x4A
+#define OP_SLLVDWORD 0x4B
+
+#define OP_SRLBYTE 0x4C
+#define OP_SRLWORD 0x4D
+#define OP_SRLDWORD 0x4E
+
+#define OP_SRLVBYTE 0x5F
+#define OP_SRLVWORD 0x50
+#define OP_SRLVDWORD 0x51
+
+#define OP_SRABYTE 0x52
+#define OP_SRAWORD 0x53
+#define OP_SRADWORD 0x54
+
+#define OP_SRAVBYTE 0x55
+#define OP_SRAVWORD 0x56
+#define OP_SRAVDWORD 0x57
 
 typedef struct VmThread
 {
