@@ -90,8 +90,8 @@ extern const PROGMEM unsigned char instructionLength[];
     
 #define OP_JMP 0x43
 
-#define OP_JNEZ 0x44
-#define OP_JNZ 0x45
+#define OP_JEZ 0x44
+#define OP_JNEZ 0x45
 
 #define OP_SLLBYTE 0x46
 #define OP_SLLWORD 0x47
@@ -105,7 +105,7 @@ extern const PROGMEM unsigned char instructionLength[];
 #define OP_SRLWORD 0x4D
 #define OP_SRLDWORD 0x4E
 
-#define OP_SRLVBYTE 0x5F
+#define OP_SRLVBYTE 0x4F
 #define OP_SRLVWORD 0x50
 #define OP_SRLVDWORD 0x51
 

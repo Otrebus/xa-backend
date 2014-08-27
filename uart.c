@@ -112,21 +112,21 @@ void timeout(Uart* self, int dummy)
 
 void cancelTimeout(Uart* self)
 {
-    if(self->timeout)
+/*    if(self->timeout)
     {
         ABORT(self->timeout);
         self->timeout = NULL;
-    }        
+    }        */
 }
 
 void resetTimeout(Uart* self, Time t)
 {
-    if(self->timeout)
+    /*if(self->timeout)
     {
         ABORT(self->timeout);
         self->timeout = NULL;
     }        
-    self->timeout = AFTER(t, self, timeout, 0);
+    self->timeout = AFTER(t, self, timeout, 0);*/
 }
 
 int handleReceivedProgByte(Uart* self, unsigned char byte)

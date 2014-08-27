@@ -16,7 +16,8 @@ void* entryPoint;
 void* externSection;
 
 const unsigned PROGMEM char instructionLength[] =
-{   0,
+{   
+    0,
     3, // OP_PUSHFP
     3, // OP_PUSHIMM
     3, // OP_PUSHADDR
@@ -84,6 +85,26 @@ const unsigned PROGMEM char instructionLength[] =
     1, // OP_SNEZWORD
     1, // OP_SNEZDWORD
     3, // OP_JMP
+    3, // OP_JEZ
+    3, // OP_JNEZ
+    2, // OP_SLLBYTE 
+    2, // OP_SLLWORD 
+    2, // OP_SLLDWORD
+    1, // OP_SLLVBYTE
+    1, // OP_SLLVWORD
+    1, // OP_SLLVDWORD
+    2, // OP_SRLBYTE
+    2, // OP_SRLWORD
+    2, // OP_SRLDWORD
+    1, // OP_SRLVBYTE
+    1, // OP_SRLVWORD
+    1, // OP_SRLVDWORD
+    2, // OP_SRABYTE
+    2, // OP_SRAWORD
+    2, // OP_SRADWORD
+    1, // OP_SRAVBYTE
+    1, // OP_SRAVWORD
+    1  // OP_SRAVDWORD
 };
 
 char mem[VM_MEMORY_SIZE];
@@ -286,19 +307,9 @@ void linkProgram()
         case OP_POPBYTEADDR:
         case OP_POPWORDADDR:
         case OP_POPDWORDADDR: ;
-        case OP_SGZBYTE:
-        case OP_SGZWORD:
-        case OP_SGZDWORD:
-        case OP_SGEZBYTE:
-        case OP_SGEZWORD:
-        case OP_SGEZDWORD:
-        case OP_SEZBYTE:
-        case OP_SEZWORD:
-        case OP_SEZDWORD:
-        case OP_SNEZBYTE:
-        case OP_SNEZWORD:
-        case OP_SNEZDWORD:
-        case OP_JMP: ;
+        case OP_JMP:
+        case OP_JNEZ:
+        case OP_JEZ: ;
             int addr = getInt(pos + 1);
             setPtr(pos + 1, mem + addr);
             break;
@@ -884,7 +895,7 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
         thread->pc = getPtr(thread->pc + 1);
         break;
         
-    case OP_JNEZ:
+    case OP_JEZ:
         ca = popChar(thread);
         if(ca == 0)
             thread->pc = getPtr(thread->pc + 1);
@@ -892,7 +903,7 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
             thread->pc += 3;
         break;
         
-    case OP_JNZ:
+    case OP_JNEZ:
         ca = popChar(thread);
         if(ca != 0)
             thread->pc = getPtr(thread->pc + 1);
@@ -924,22 +935,22 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
     case OP_SLLVBYTE:
         ca = popChar(thread);
         cb = popChar(thread);
-        cb <<= ca;
-        pushChar(thread, cb);
+        ca <<= cb;
+        pushChar(thread, ca);
         thread->pc += 1;
         break; 
         
     case OP_SLLVWORD:
-        ca = popChar(thread);
         ia = popInt(thread);
+        ca = popChar(thread);
         ia <<= ca;
         pushInt(thread, ia);
         thread->pc += 1;
         break;
     
     case OP_SLLVDWORD:
-        ca = popChar(thread);
         la = popLong(thread);
+        ca = popChar(thread);
         la <<= ca;
         pushLong(thread, la);
         thread->pc += 1;
@@ -955,14 +966,14 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
     
     case OP_SRLWORD:
         ia = popInt(thread);
-        ca = *((unsigned int*) &ia) >> getChar(thread->pc + 1);
+        ia = *((unsigned int*) &ia) >> getChar(thread->pc + 1);
         pushInt(thread, ia);
         thread->pc += 2;
         break;
     
     case OP_SRLDWORD:
         la = popLong(thread);
-        ca = *((unsigned long*) &la) >> getChar(thread->pc + 1);
+        la = *((unsigned long*) &la) >> getChar(thread->pc + 1);
         pushLong(thread, la);
         thread->pc += 2;
         break;
@@ -970,22 +981,22 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
     case OP_SRLVBYTE:
         ca = popChar(thread);
         cb = popChar(thread);
-        cb = *((unsigned char*) &cb) >> ca;
+        ca = *((unsigned char*) &ca) >> cb;
         pushChar(thread, cb);
         thread->pc += 1;
         break;
         
     case OP_SRLVWORD:
-        ca = popChar(thread);
         ia = popInt(thread);
+        ca = popChar(thread);
         ia = *((unsigned int*) &ia) >> ca;
         pushInt(thread, ia);
         thread->pc += 1;
         break;
             
     case OP_SRLVDWORD:
-        ca = popChar(thread);
         la = popLong(thread);
+        ca = popChar(thread);
         la = *((unsigned long*) &la) >> ca;
         pushLong(thread, la);
         thread->pc += 1;
@@ -1015,26 +1026,26 @@ bool executeInstruction(VmThread* thread, VmArgBin* argBin)
     case OP_SRAVBYTE:
         ca = popChar(thread);
         cb = popChar(thread);
-        cb = cb >> ca;
+        ca = ca >> cb;
         pushChar(thread, cb);
         thread->pc += 1;
         break;
         
     case OP_SRAVWORD:    
-        ca = popChar(thread);
         ia = popInt(thread);
+        ca = popChar(thread);
         ia = ia >> ca;
         pushInt(thread, ia);
         thread->pc += 1;
         break;
         
     case OP_SRAVDWORD:
-        ca = popChar(thread);
         la = popLong(thread);
+        ca = popChar(thread);
         la = la >> ca;
         pushLong(thread, la);
         thread->pc += 1;
-        break;    
+        break;
     }
     return true;
 }
