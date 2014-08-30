@@ -323,11 +323,7 @@ void setupUart()
 int lockedTransmit(Uart* self, int arg)
 {
     VmThread* thread = (VmThread*) arg;
-    if(self->transmitting) // TODO: change to just adding it to the buffer
-    {
-        thread->sp = thread->fp + 7;
-        return 0;
-    }        
+
     unsigned char header[] = { FRAME_DELIMITER, 0x00 };
     unsigned char footer[] = { FRAME_DELIMITER };
     char length = getChar(thread->fp + 4);
