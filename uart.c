@@ -14,8 +14,8 @@ Uart uart = initUart();
 
 void sendAck(Uart* self)
 {
-    unsigned char sendBuf[] = { FRAME_DELIMITER, ACK_HEADER, self->confirmedReceived & 0xFF, 
-                                (int) self->confirmedReceived >> 8, 0, 0, 0, 0, FRAME_DELIMITER };
+    unsigned char sendBuf[] = { FRAME_DELIMITER, ACK_HEADER, self->confirmedReceived & 0xFF,
+    (int) self->confirmedReceived >> 8, 0, 0, 0, 0, FRAME_DELIMITER };
     unsigned long chkSum = 0;
     chkSum = sendBuf[1] + sendBuf[2] + sendBuf[3];
     *((unsigned long*) (&sendBuf[4])) = chkSum;

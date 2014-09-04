@@ -3,6 +3,7 @@
 #include "vm.h"
 #include "TinyTimber.h"
 #include <avr/wdt.h>
+#include <avr/interrupt.h>
 
 void wdt_init(void) __attribute__((naked)) __attribute__((section(".init3")));
 
@@ -18,6 +19,7 @@ Led led;
 
 int main(void)
 {
+    //sei();
     setupLed();
     setupUart();
     vmInit();

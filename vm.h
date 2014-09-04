@@ -7,7 +7,7 @@
 #define VM_NARGBINS 8
 #define VM_NTHREADS 4
 
-#define VM_MEMORY_SIZE 4096
+#define VM_MEMORY_SIZE 3500
 
 #include <avr/pgmspace.h>
 #include "TinyTimber.h"

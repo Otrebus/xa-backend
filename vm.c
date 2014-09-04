@@ -108,9 +108,9 @@ const unsigned PROGMEM char instructionLength[] =
 };
 
 char mem[VM_MEMORY_SIZE];
-
 VmArgBin vmArgBins[VM_NARGBINS];
 VmThread vmThreads[VM_NTHREADS];
+
 
 VmArgBin* vmArgBinStack = vmArgBins;
 VmThread* vmThreadStack = vmThreads;
@@ -338,17 +338,17 @@ void initStacks()
     int stackSize = totStackSize/VM_NTHREADS;
     
     vmThreads->bottom = externSection;
-    vmThreads->fp = vmThreads->pc = vmThreads->stack = externSection + stackSize + totStackSize % VM_NTHREADS;
+    vmThreads->fp = vmThreads->sp = vmThreads->stack = vmThreads->bottom + stackSize + totStackSize % VM_NTHREADS;
 
     VmThread* lastThread = vmThreads;
     for(VmThread* thread = vmThreads->next; thread; thread = thread->next)
     {
         thread->bottom = lastThread->stack;
-        thread->fp = thread->pc = thread->stack = thread->bottom + stackSize;
+        thread->fp = thread->sp = thread->stack = thread->bottom + stackSize;
         lastThread = thread;
     }
     
-     for(VmThread* thread = vmThreads; thread; thread = thread->next)
+    for(VmThread* thread = vmThreads; thread; thread = thread->next)
         memset(thread->bottom, 0, thread->stack - thread->bottom);
 }           
 
