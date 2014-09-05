@@ -9,13 +9,12 @@
 
 #define soft_reset() do { wdt_enable(WDTO_15MS); for(;;) { } } while(0)
 
-
 Uart uart = initUart();
 
-void sendAck(Uart* self)
+void sendAck(Uart* self, int confirmedReceived)
 {
-    unsigned char sendBuf[] = { FRAME_DELIMITER, ACK_HEADER, self->confirmedReceived & 0xFF,
-    (int) self->confirmedReceived >> 8, 0, 0, 0, 0, FRAME_DELIMITER };
+    unsigned char sendBuf[] = { FRAME_DELIMITER, ACK_HEADER, confirmedReceived & 0xFF,
+    (int) confirmedReceived >> 8, 0, 0, 0, 0, FRAME_DELIMITER };
     unsigned long chkSum = 0;
     chkSum = sendBuf[1] + sendBuf[2] + sendBuf[3];
     *((unsigned long*) (&sendBuf[4])) = chkSum;
@@ -24,9 +23,9 @@ void sendAck(Uart* self)
     transmit(self, 1, sendBuf + sizeof(sendBuf) - 1);
 }
 
-void addToChecksum(Uart* self, unsigned char byteToAdd)
+void addToChecksum(unsigned long *checksum, unsigned char byteToAdd)
 {
-    self->checksum += byteToAdd;
+    *checksum += byteToAdd;
 }
 
 int handleCompleteAppFrame(Uart* self)
@@ -104,10 +103,10 @@ int transmitChecked(Uart* self, unsigned int length, unsigned char* buffer)
 
 void timeout(Uart* self, int dummy)
 {
-   self->progRecvState = ProgRecvIdle;
+   /*self->progRecvState = ProgRecvIdle;
    self->recvState = RecvIdle;
    self->subState = 0;
-   self->timeout = NULL;
+   self->timeout = NULL;*/
 }
 
 void cancelTimeout(Uart* self)
@@ -129,91 +128,6 @@ void resetTimeout(Uart* self, Time t)
     self->timeout = AFTER(t, self, timeout, 0);*/
 }
 
-int handleReceivedProgByte(Uart* self, unsigned char byte)
-{
-    switch(self->progRecvState)
-    {
-        case ProgRecvIdle:
-            break;
-        case ExpectingLength:
-            addToChecksum(self, byte);
-            if(self->subState == 0)
-            {
-                self->confirmedReceived = 0;
-                self->tentativeProgramLength = 0;
-                self->pBuf = 0;
-            }                
-            self->tentativeProgramLength |= ((int)byte << (8*self->subState++));
-            if(self->subState > 1)
-            {
-                self->subState = 0;
-                self->progRecvState = ExpectingData;
-            }
-            break;
-        case ExpectingSeq:
-            addToChecksum(self, byte);
-            if(self->subState == 0)
-                self->seq = 0;
-            self->seq |= ((int)byte) << (8*self->subState++);
-            if(self->subState > 1)
-            {
-                if(self->seq < self->confirmedReceived)
-                    self->confirmedReceived = self->seq;
-                self->subState = 0;
-                self->progRecvState = ExpectingData;
-            }
-            break;
-        case ExpectingData:
-            if(byte == FRAME_DELIMITER && !self->escape)
-            {
-                if(self->pBuf < 4)
-                    return 0;
-                self->pBuf -= 4;
-                self->recvState = RecvIdle;
-
-                unsigned long receivedChecksum = *((unsigned long*) &(self->frameBuffer[self->pBuf]));
-                resetTimeout(self, MSEC(20));
-                for(int i = 0; i < self->pBuf; i++)
-                    addToChecksum(self, self->frameBuffer[i]);
-                if(receivedChecksum != self->checksum || (self->seq < self->confirmedReceived && self->seq + self->pBuf > self->confirmedReceived))
-                {
-                    self->recvState = RecvIdle;
-                    self->checksum = 0;
-                    self->pBuf = 0;
-                    self->progRecvState = ProgRecvIdle;
-                    return 0;
-                }
-                self->programLength = self->tentativeProgramLength;
-                if(self->seq + self->pBuf <= self->confirmedReceived)
-                {
-                    sendAck(self);
-                    self->pBuf = 0;
-                    self->progRecvState = ProgRecvIdle;
-                    self->recvState = RecvIdle;
-                    self->checksum = 0;
-                    return 1;
-                }                    
-
-                self->confirmedReceived = self->pBuf + self->seq;
-                sendAck(self);
-                loadProgramSegment(self->programLength, self->seq, self->pBuf, self->frameBuffer);
-                self->pBuf = 0;
-                if(self->confirmedReceived == self->programLength)
-                {
-                    self->progRecvState = ProgRecvIdle;
-                    self->recvState = RecvIdle;
-                }
-                self->checksum = 0;
-            }
-            else
-            {
-                self->frameBuffer[self->pBuf++] = byte;
-            }                
-            break;
-    }
-    return 0;
-}
-
 int handleReceivedAppByte(Uart* self, unsigned char arg)
 {
     self->frameBuffer[self->pBuf] = arg;
@@ -221,65 +135,87 @@ int handleReceivedAppByte(Uart* self, unsigned char arg)
     return 0;
 }
 
+int handleProgFrame(Uart* self)
+{
+    if(self->pBuf < 7)
+        return 0;
+    if(self->frameBuffer[0] == INITSEND_HEADER)
+    {
+        self->programLength = *((unsigned int*) (self->frameBuffer + 1));
+        int dataLength = self->pBuf - 4;
+        int progChunkLength = self->pBuf - 7;
+        
+        unsigned long checksum = 0;
+        long providedChecksum = *((unsigned long*) (self->frameBuffer + dataLength));
+        
+        for(int i = 0; i < dataLength; i++)
+            addToChecksum(&checksum, self->frameBuffer[i]);
+        if(checksum != providedChecksum)
+            return 0;
+        loadProgramSegment(self->programLength, self->seq, progChunkLength, self->frameBuffer + 3);
+        self->seq += progChunkLength;
+        sendAck(self, self->seq);
+    }        
+    else
+    {
+        unsigned int receivedSeq = *((unsigned int*) (self->frameBuffer + 1));
+        int dataLength = self->pBuf - 4;
+        int progChunkLength = self->pBuf - 7;
+        
+        unsigned long checksum = 0;
+        long providedChecksum = *((unsigned long*) (self->frameBuffer + dataLength));
+        
+        for(int i = 0; i < dataLength; i++)
+            addToChecksum(&checksum, self->frameBuffer[i]);
+        if(checksum != providedChecksum || receivedSeq > self->seq)
+            return 0;
+        loadProgramSegment(self->programLength, self->seq, progChunkLength, self->frameBuffer + 3);
+        self->seq += progChunkLength;
+        sendAck(self, self->seq);
+    }
+    return 1;       
+}    
+
 int handleReceivedByte(Uart* self, int arg)
 {
     resetTimeout(self, MSEC(5));
     unsigned char byte = (unsigned char) arg;
-    if(byte == 0x7D)
+    if(byte == ESCAPE_OCTET)
     {
         self->escape = true;
         return 0;
     }
     if(self->escape)
         byte = byte ^ (1 << 5);
-    
-    switch(self->recvState)
+        
+    if(byte == FRAME_DELIMITER && !self->escape)
     {
-        case RecvIdle:
-            if(byte == FRAME_DELIMITER && !self->escape) // Delimiter, starts new frame
-            self->pBuf = 0;
-            self->recvState = Receiving;
+        if(!self->receiving)
+        {
+            self->receiving = true;
+            return 0;
+        }
+        
+        switch(self->frameBuffer[0])
+        {
+        case INITSEND_HEADER:
+        case MORESEND_HEADER:
+            handleProgFrame(self);
             break;
-        case Receiving:
-            if(byte == INITSEND_HEADER && !self->escape) // Sender wants to reprogram
-            {
-                addToChecksum(self, byte);
-                self->recvState = ProgReceiving;
-                self->progRecvState = ExpectingLength;
-                self->subState = 0;
-            }
-            else if(byte == MORESEND_HEADER && !self->escape)
-            {
-                addToChecksum(self, byte);
-                self->recvState = ProgReceiving;
-                self->progRecvState = ExpectingSeq;
-                self->subState = 0;
-            }
-            else if(byte == RESET_HEADER && !self->escape)
-                self->recvState = ResetReceiving;
-            else
-                self->recvState = AppReceiving;
+        case RESET_HEADER:
+            soft_reset();
             break;
-        case AppReceiving:
-            if(byte == FRAME_DELIMITER && !self->escape)
-            {
-                self->recvState = RecvIdle;
-                handleCompleteAppFrame(self);
-            }
-            else
-                handleReceivedAppByte(self, byte);
+        default:
+            handleCompleteAppFrame(self);
             break;
-        case ProgReceiving:
-            handleReceivedProgByte(self, byte);
-            break;
-        case ResetReceiving:
-            if(byte == FRAME_DELIMITER && !self->escape)
-                soft_reset();
-            break;
+        }
+        self->pBuf = 0;
     }
+    else
+        self->frameBuffer[self->pBuf++] = byte;
+    
     if(self->escape)
         self->escape = false;
-    
     return 0;
 }
 
