@@ -33,11 +33,12 @@ int handleCompleteAppFrame(Uart* self)
     cli();
     VmArgBin* argBin = popVmArgBin();
     sei();
-    unsigned char argStack[] = { self->pBuf, (unsigned char) ((unsigned int) self->frameBuffer) & 0xFF, (unsigned char) ((unsigned int) self->frameBuffer >> 8) & 0xFF }; // TODO: using pbuf here is iffy at best
+    unsigned char argStack[] = { self->pBuf - 1};
     argBin->argSize = sizeof(argStack);
     memcpy(argBin->argStack, argStack, argBin->argSize);
     argBin->methodAddr = self->callbackMeth;
-    ASYNC(self->callbackObj, exec, argBin); // TODO: why async?
+    memcpy(self->callbackBuf, self->frameBuffer + 1, self->pBuf - 1);
+    ASYNC(self->callbackObj, exec, argBin);
     return 0;
 }
 
@@ -128,13 +129,6 @@ void resetTimeout(Uart* self, Time t)
     self->timeout = AFTER(t, self, timeout, 0);*/
 }
 
-int handleReceivedAppByte(Uart* self, unsigned char arg)
-{
-    self->frameBuffer[self->pBuf] = arg;
-    self->pBuf = (self->pBuf + 1) % UART_TB_SIZE;
-    return 0;
-}
-
 int handleProgFrame(Uart* self)
 {
     if(self->pBuf < 7)
@@ -153,7 +147,7 @@ int handleProgFrame(Uart* self)
         if(checksum != providedChecksum)
             return 0;
         loadProgramSegment(self->programLength, self->seq, progChunkLength, self->frameBuffer + 3);
-        self->seq += progChunkLength;
+        self->seq = progChunkLength;
         sendAck(self, self->seq);
     }        
     else
@@ -170,7 +164,7 @@ int handleProgFrame(Uart* self)
         if(checksum != providedChecksum || receivedSeq > self->seq)
             return 0;
         loadProgramSegment(self->programLength, self->seq, progChunkLength, self->frameBuffer + 3);
-        self->seq += progChunkLength;
+        self->seq = receivedSeq + progChunkLength;
         sendAck(self, self->seq);
     }
     return 1;       
@@ -210,6 +204,7 @@ int handleReceivedByte(Uart* self, int arg)
             break;
         }
         self->pBuf = 0;
+        self->receiving = false;
     }
     else
         self->frameBuffer[self->pBuf++] = byte;
@@ -245,6 +240,7 @@ int uartSentInterrupt(Uart* self, int arg)
  
 void setupUart()
 {
+    srand(0);
     // Set baud speed
     UBRR0H = (BAUD_PRESCALE >> 8);
     UBRR0L = BAUD_PRESCALE;
@@ -281,9 +277,10 @@ void vmTransmit(VmThread* thread)
 int setCallback(Uart* self, int arg)
 {
     VmThread* thread = (VmThread*) arg;
-    self->callbackObj = (Object*) getPtr(thread->fp + 4);
-    self->callbackMeth = getPtr(thread->fp + 6);
-    thread->sp = thread->fp + 8;
+    self->callbackMeth = getPtr(thread->fp + 8);
+    self->callbackObj = (Object*) getPtr(thread->fp + 6);
+    self->callbackBuf = getPtr(thread->fp + 4);
+    thread->sp = thread->fp + 10;
     return 0;
 }
     

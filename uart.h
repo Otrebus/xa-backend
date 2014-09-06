@@ -16,7 +16,6 @@
 #define ACK_HEADER      0x0C
 #define RESET_HEADER    0x0D
 
-
 #define UART_RB_SIZE 256
 #define UART_TB_SIZE 64 // Must be <= 256
 
@@ -32,19 +31,12 @@ typedef struct {
     Object super;                             // Inherited TinyTimber grandfather object
     unsigned char frameBuffer[UART_RB_SIZE];  // Frame reception buffer
     unsigned char pBuf;                       // First free character in frame reception buffer
-    //unsigned long checksum;                   // Checksum of current segment
-    //unsigned int confirmedReceived;           // Amount of data with valid checksum received
     unsigned int seq;                         // Sequence number of the current frame
-
-    //UartRecvState recvState;                  // Receive state
-    //ProgRecvState progRecvState;              // Represents the stage of program reception
     
-    //int subState;                             // Possible sub state to above
     bool escape;                              // Was previous byte escape character?
     bool transmitting;                        // Are we currently transmitting?
     bool receiving;
-    
-    //unsigned int tentativeProgramLength;      // Tentative program length (blah.)
+
     unsigned int programLength;               // Length of program currently being received
     
     unsigned char transBuf[UART_TB_SIZE];     // Transmission (ring) buffer
@@ -54,9 +46,10 @@ typedef struct {
     
     Object* callbackObj;
     void* callbackMeth;
+    void* callbackBuf;
 } Uart;
 
-#define initUart() { initObject(), {}, 0, 0, false, false, false, 0, {}, 0, 0, 0, 0, 0 }
+#define initUart() { initObject(), {}, 0, 0, false, false, false, 0, {}, 0, 0, 0, 0, 0, 0 }
                          
 extern Uart uart;
 

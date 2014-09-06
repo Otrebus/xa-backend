@@ -19,7 +19,6 @@ Led led;
 
 int main(void)
 {
-    //sei();
     setupLed();
     setupUart();
     vmInit();

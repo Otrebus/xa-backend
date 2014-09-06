@@ -111,7 +111,6 @@ char mem[VM_MEMORY_SIZE];
 VmArgBin vmArgBins[VM_NARGBINS];
 VmThread vmThreads[VM_NTHREADS];
 
-
 VmArgBin* vmArgBinStack = vmArgBins;
 VmThread* vmThreadStack = vmThreads;
 
